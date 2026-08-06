@@ -587,7 +587,9 @@ const S={
   batt:97,
   uptime:9318,
   defIdx:0,
-  smart:true,
+  /* smart-select defaults OFF; while on, the system picks the cards and every
+     manual-selection row in 数据卡管理 greys out (rowsSim) */
+  smart:false,
   wifi:{on:true,ssid:'BeWinner_5G_001',pwd:'bw88888888',band:true,nfc:true},
   aggMode:0,
   rj45:0,                  // 0 LAN | 1 WAN
@@ -601,9 +603,7 @@ const S={
     {n:'大疆 Action 5',  ip:'192.168.1.103', r:'2.4 GHz'},
   ],
   lang:0,
-  beep:true,
   sleepIdx:0,
-  keySound:true,
   diag:null,
   upg:null,
   /* bound account. The phone number is stored whole and masked at render time —
@@ -712,7 +712,7 @@ function renderStatus(){
 }
 const TITLES={
   menu:'设置',acct:'账号设置',wifi:'Wi-Fi 设置',clients:'接入设备',pwd:'Wi-Fi 密码',
-  sim:'数据卡管理',agg:'聚合设置',agglink:'聚合链路',
+  sim:'数据卡管理',agglink:'聚合链路设置',
   aggmode:'聚合模式',pickA:'链路 A',pickB:'链路 B',diag:'网络诊断',
   net:'网络设置',dev:'设备设置',devinfo:'设备信息',sleep:'自动休眠',bright:'屏幕亮度',
   lang:'语言',upg:'系统升级',app:'APP 下载',
@@ -869,23 +869,20 @@ function qrSVG(){
   return `<svg viewBox="0 0 17 17" shape-rendering="crispEdges" fill="#000">${c}</svg>`;
 }
 function viewUnact(){
-  return `<div class="notice" style="padding-top:0;gap:0">
+  return `<div class="notice" style="padding-top:10px;gap:0">
     <div class="nt-t" style="font-size:14.5px">欢迎使用</div>
     <div class="nt-d" style="margin-bottom:7px">松果智联 · 直播盒子</div>
     <div class="qr bind">${qrSVG()}</div>
     <div class="nt-d" style="margin-top:8px;color:var(--text);font-size:11.5px">
-      使用松果智联 APP 扫码绑定设备</div>
+      扫码下载松果智联APP或绑定设备</div>
     <div class="steps" style="margin-top:9px;gap:4.5px">
-      <div><b>1</b><span>松果智联 APP 注册 / 登录账号</span></div>
-      <div><b>2</b><span>扫码绑定本设备</span></div>
-      <div><b>3</b><span>APP 内完成内置卡实名认证 / 二次认证</span></div>
-      <div><b>4</b><span>购买套餐或插入外置卡</span></div>
+      <div><b>1</b><span>下载松果智联 APP</span></div>
+      <div><b>2</b><span>松果智联 APP 注册 / 登录账号</span></div>
+      <div><b>3</b><span>扫码绑定本设备</span></div>
+      <div><b>4</b><span>APP 内完成内置卡实名认证 / 二次认证</span></div>
+      <div><b>5</b><span>购买套餐或插入外置卡</span></div>
     </div>
-    <div class="dl-blk">
-      <div class="qr dl">${qrSVG()}</div>
-      <div class="dl-tx">扫码下载松果智联 APP<br>
-        <span>或在手机应用市场搜索<b>松果智联</b>下载</span></div>
-    </div>
+    
   </div>`;
 }
 function viewNoSim(){
@@ -904,7 +901,7 @@ function viewNoSim(){
   </div>`;
 }
 /* ════════ LIST BUILDER ════════ */
-/* row: {t, s, v, sw, rd, chev, dis, danger, sect} — sect rows are non-focusable */
+/* row: {t, s, v, sw, rd, chev, dis, disMsg, danger, sect} — sect rows are non-focusable */
 function buildList(rows){
   let fi=-1;
   let html=rows.map(r=>{
@@ -936,7 +933,9 @@ function rowsMenu(){
   return [
     {t:'Wi-Fi 设置',chev:1},
     {t:'数据卡管理',chev:1},
-    {t:'聚合设置',chev:1,dis:off},
+    /* the old 聚合设置 hub only held two links; the link page replaced it outright
+       (v2.7), and 聚合模式 moved into the link page so the menu stays 9 items */
+    {t:'聚合链路设置',chev:1,dis:off},
     {t:'网络诊断',chev:1,dis:off},
     {t:'网络设置',chev:1},
     {t:'设备设置',chev:1},
@@ -979,33 +978,35 @@ function rowsWifi(){
   ];
 }
 function rowsSim(){
+  /* smart-select owns card choice while it is on: the card rows grey out and
+     drop their radio dots (a stale dot would claim a selection the user did not
+     make). disMsg tells them WHY, because a bare "当前不可用" reads as broken. */
+  const gate=S.smart?{dis:1,disMsg:'智能选网开启中，由系统自动选卡'}:{};
+  const rd=i=>S.smart?undefined:S.defIdx===i;
   let r=[{t:'智能选网',s:'自动切换最优运营商',sw:S.smart},{sect:'内置 eSIM'}];
   S.sims.slice(0,2).forEach((s,i)=>r.push({
     t:s.nm,s:s.st==='ok'?'已实名 · '+s.op:'未实名',
     v:s.st==='ok'?'':'需认证',
-    rd:S.defIdx===i,dis:s.st!=='ok'
+    rd:rd(i),dis:s.st!=='ok',...gate
   }));
   r.push({sect:'外置卡槽'});
   S.sims.slice(2,4).forEach((s,i)=>r.push({
     t:s.nm,s:s.st==='empty'?'未插入':s.op,
-    rd:S.defIdx===i+2,dis:s.st==='empty'
+    rd:rd(i+2),dis:s.st==='empty',...gate
   }));
   r.push({sect:'USB'});
   r.push({t:'USB Dongle',s:S.sims[4].st==='ok'?'已插入 · '+S.sims[4].op:'未插入',
-    rd:S.defIdx===4,dis:S.sims[4].st!=='ok'});
+    rd:rd(4),dis:S.sims[4].st!=='ok',...gate});
   return r;
-}
-function rowsAgg(){
-  return [
-    {t:'聚合链路',s:'链路 A / B / 外扩配置',chev:1},
-    {t:'聚合模式',v:MODES[S.aggMode].n,chev:1},
-  ];
 }
 function rowsAggLink(){
   return [
     {t:'链路 A',s:'Modem 1 · 移动 / 外置卡1',v:S.sims[S.linkA].nm,chev:1},
     {t:'链路 B',s:'Modem 2 · 电信 / 外置卡2',v:S.sims[S.linkB].nm,chev:1},
     {t:'USB 外扩',s:S.sims[4].st==='ok'?'独立通道':'未插入',sw:S.useUsb,dis:S.sims[4].st!=='ok'},
+    /* 聚合模式 moved in when this page replaced the two-row 聚合设置 hub (v2.7) —
+       it is aggregation config and belongs with the links it shapes */
+    
     {sect:'约束'},
     {t:'同组互斥',s:'A组(移动+外置1) 共享 Modem1\nB组(电信+外置2) 共享 Modem2\n同组内同时仅 1 路可用'},
   ];
@@ -1032,7 +1033,6 @@ function rowsDev(){
   return [
     {t:'屏幕亮度',v:S.autoBright?'自动':S.bright+'%',chev:1},
     {t:'语言',v:S.lang?'English':'中文',chev:1},
-    {t:'按键提示音',sw:S.keySound},
     {t:'自动休眠',v:SLEEP[S.sleepIdx],chev:1},
     {t:'设备信息',chev:1},
     /* 系统升级 sits next to 设备信息: both answer "what state is this box in".
@@ -1177,12 +1177,12 @@ function viewApp(){
     <div class="nt-d" style="margin-bottom:12px">管理设备 · 购买套餐 · 查看用量</div>
     <div class="qr">${qrSVG()}</div>
     <div style="font-family:var(--num);font-size:10px;color:var(--text-3);
-      letter-spacing:.08em;margin-top:12px">iOS 14+ · Android 8+</div>
+      letter-spacing:.08em;margin-top:12px"></div>
   </div>`;
 }
 /* ════════ ROUTE TABLE ════════ */
 const ROWS={
-  menu:rowsMenu, acct:rowsAcct, wifi:rowsWifi, sim:rowsSim, agg:rowsAgg, agglink:rowsAggLink,
+  menu:rowsMenu, acct:rowsAcct, wifi:rowsWifi, sim:rowsSim, agglink:rowsAggLink,
   aggmode:rowsAggMode, net:rowsNet, dev:rowsDev, devinfo:rowsDevInfo,
   pickA:()=>rowsPick('A'), pickB:()=>rowsPick('B'),
   sleep:()=>SLEEP.map((s,i)=>({t:s,rd:S.sleepIdx===i})),
@@ -1287,13 +1287,13 @@ function confirm(){
   if(p==='nosim'){go('menu');return}
   // guarded rows
   let rows=ROWS[p]?focusable(ROWS[p]()):null;
-  if(rows&&rows[f]&&rows[f].dis){toast('当前不可用');return}
+  if(rows&&rows[f]&&rows[f].dis){toast(rows[f].disMsg||'当前不可用');return}
 
   switch(p){
     case 'menu':{
       /* must stay in the same order as rowsMenu(). 信道优选 has no page yet, so
          its slot is null and the row just toasts instead of routing nowhere. */
-      const dst=['wifi','sim','agg','diag','net','dev','acct',null,'app'];
+      const dst=['wifi','sim','agglink','diag','net','dev','acct',null,'app'];
       if(!dst[f]){toast('功能开发中');break}
       go(dst[f]);break;
     }
@@ -1321,16 +1321,16 @@ function confirm(){
     case 'sim':{
       if(f===0){S.smart=!S.smart;toast('智能选网 '+(S.smart?'ON':'OFF'),S.smart?'ok':'')}
       else{
+        /* dis rows (unavailable card, or every card while smart-select is on) are
+           already stopped by the guarded-row check above, which toasts disMsg */
         const map=[null,0,1,2,3,4];
         let i=map[f];
         if(i!==null&&i!==undefined){
-          if(S.sims[i].st!=='ok'){toast('该卡不可用');break}
           S.defIdx=i;toast('默认卡 → '+S.sims[i].nm,'ok');
         }
       }
       break;
     }
-    case 'agg': go(f===0?'agglink':'aggmode'); break;
     case 'agglink':{
       if(f===0)go('pickA');
       else if(f===1)go('pickB');
@@ -1338,6 +1338,7 @@ function confirm(){
         if(S.sims[4].st!=='ok'){toast('USB 未插入');break}
         S.useUsb=!S.useUsb;toast('USB 外扩 '+(S.useUsb?'已加入':'已移除'));
       }
+      else if(f===3)go('aggmode');
       break;
     }
     case 'pickA':{let i=[0,2][f];if(S.sims[i].st!=='ok'){toast('该卡不可用');break}
@@ -1355,13 +1356,12 @@ function confirm(){
     case 'dev':{
       if(f===0)go('bright');
       else if(f===1)go('lang');
-      else if(f===2){S.keySound=!S.keySound;toast('提示音 '+(S.keySound?'ON':'OFF'))}
-      else if(f===3)go('sleep');
-      else if(f===4)go('devinfo');
-      else if(f===5)go('upg');
-      else if(f===6)openModal('重启设备','设备将立即重启，网络会短暂中断。',
+      else if(f===2)go('sleep');
+      else if(f===3)go('devinfo');
+      else if(f===4)go('upg');
+      else if(f===5)openModal('重启设备','设备将立即重启，网络会短暂中断。',
         ()=>{toast('设备正在重启…')},true);
-      else if(f===7)openModal('恢复出厂设置','所有配置将被清除且不可撤销。',
+      else if(f===6)openModal('恢复出厂设置','所有配置将被清除且不可撤销。',
         ()=>{toast('正在恢复出厂…','err')});
       break;
     }

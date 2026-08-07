@@ -248,6 +248,10 @@ body::before{
 .sig.q-mid i.on,.sig.s2 i:nth-child(-n+2),.sig.s3 i:nth-child(-n+3){background:var(--warn)}
 .sig.s4 i:nth-child(-n+4){background:var(--up)}
 .sig.s1 i:nth-child(-n+1){background:var(--alert)}
+/* RAT tag (5G/4G) riding next to the bars — one wrapper keeps baseline aligned */
+.sigrat{display:inline-flex;align-items:flex-end;gap:2px}
+.sigrat .rat{font-family:var(--num);font-size:7px;font-weight:700;color:var(--text-2);
+  letter-spacing:.02em;padding-bottom:.5px}
 
 /* aggregation badge */
 .agg-chip{
@@ -624,11 +628,11 @@ const S={
   acct:{name:'林望',phone:'13856726721',unbindAt:0},
   sims:[
     /* sl = slot label shown on the single-card home ("内置-中国移动") */
-    {id:'m', nm:'移动',    tp:'内置', sl:'内置',  op:'中国移动', sig:4, up:5.2, dn:3.1, st:'ok',    grp:'A'},
-    {id:'t', nm:'电信',    tp:'内置', sl:'内置',  op:'中国电信', sig:3, up:4.1, dn:2.8, st:'ok',    grp:'B'},
-    {id:'e1',nm:'外置卡1', tp:'外置', sl:'外置1', op:'中国联通', sig:4, up:2.0, dn:1.5, st:'ok',    grp:'A'},
-    {id:'e2',nm:'外置卡2', tp:'外置', sl:'外置2', op:'',        sig:0, up:0,   dn:0,   st:'empty', grp:'B'},
-    {id:'u', nm:'USB',     tp:'USB',  sl:'USB',   op:'中国广电', sig:4, up:3.2, dn:2.2, st:'ok',    grp:'U'},
+    {id:'m', nm:'移动',    tp:'内置', sl:'内置',  op:'中国移动', sig:4, rat:'5G', up:5.2, dn:3.1, st:'ok',    grp:'A'},
+    {id:'t', nm:'电信',    tp:'内置', sl:'内置',  op:'中国电信', sig:3, rat:'5G', up:4.1, dn:2.8, st:'ok',    grp:'B'},
+    {id:'e1',nm:'外置卡1', tp:'外置', sl:'外置1', op:'中国联通', sig:4, rat:'4G', up:2.0, dn:1.5, st:'ok',    grp:'A'},
+    {id:'e2',nm:'外置卡2', tp:'外置', sl:'外置2', op:'',        sig:0, rat:'',   up:0,   dn:0,   st:'empty', grp:'B'},
+    {id:'u', nm:'USB',     tp:'USB',  sl:'USB',   op:'中国广电', sig:4, rat:'4G', up:3.2, dn:2.2, st:'ok',    grp:'U'},
   ],
   linkA:0, linkB:1, useUsb:true,
   timers:{toast:null,idle:null,tick:null},
@@ -653,6 +657,10 @@ function sigBars(n,tone){
   let cls='sig s'+n;
   if(tone)cls+=' '+tone;
   return `<span class="${cls}"><i></i><i></i><i></i><i></i></span>`;
+}
+/* bars + 5G/4G tag — used everywhere a link's signal is shown */
+function sigRat(l){
+  return `<span class="sigrat">${sigBars(l.sig,sigTone(l.sig))}${l.rat?`<span class="rat">${l.rat}</span>`:''}</span>`;
 }
 function battHTML(){
   let c=S.batt<=20?'low':S.batt<=40?'warn':'';
@@ -700,11 +708,11 @@ function renderStatus(){
      bars only here; names and path count live on the home screen below */
   let left='';
   if(S.act==='online'&&S.agg){
-    left=activeLinks().map(l=>sigBars(l.sig,sigTone(l.sig)))
+    left=activeLinks().map(l=>sigRat(l))
       .join('<span style="width:4px"></span>');
   }else if(S.act==='online'){
     let d=S.sims[S.defIdx];
-    left=`${sigBars(d.sig,sigTone(d.sig))}
+    left=`${sigRat(d)}
       <span style="font-family:var(--cn);font-size:9px;color:var(--text-3)">${d.op}</span>`;
   }else{
     left=`<span style="color:var(--alert);font-size:10px">无信号</span>`;
@@ -829,7 +837,7 @@ function viewHomeAgg(){
     ${ls.map(l=>`
       <div class="lrow">
         <span class="l-nm">${l.nm}</span>
-        <span class="l-mid">${sigBars(l.sig,sigTone(l.sig))}<span class="l-op">${l.op}</span></span>
+        <span class="l-mid">${sigRat(l)}<span class="l-op">${l.op}</span></span>
         <span class="l-rt"><span class="l-up">↑${l.up.toFixed(1)}</span><span class="l-dn">↓${l.dn.toFixed(1)}</span></span>
       </div>`).join('')}
   </div>

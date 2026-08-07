@@ -144,6 +144,21 @@ ok('bind page carries exactly one QR',
 ok('home does not scroll',/nohome/.test(src)&&/overflow:hidden/.test(src),'scroll not disabled');
 ok('home overflow alarm wired',/checkFit/.test(src)&&/fitWarn/.test(src)&&/主页溢出/.test(src),
   'nohome would crop silently');
+/* 5G/4G RAT tags ride with the bars — status bar (agg + single) and every link row */
+S.act='online';S.agg=true;S.useUsb=false;renderStatus();
+const barRat=cache.sbar.innerHTML;
+ok('agg status bar shows one RAT tag per link',
+  (barRat.match(/class="rat">[45]G/g)||[]).length===activeLinks().length,barRat);
+S.agg=false;renderStatus();
+ok('single-card status bar shows the RAT tag',
+  /class="rat">[45]G/.test(cache.sbar.innerHTML),cache.sbar.innerHTML);
+S.agg=true;
+const aggHtml=viewHomeAgg();
+ok('link rows carry RAT tags',
+  (aggHtml.match(/class="rat">[45]G/g)||[]).length===activeLinks().length,'link rows missing rat');
+S.act='nosim';renderStatus();
+ok('no RAT tag without signal',!/class="rat"/.test(cache.sbar.innerHTML),'rat without signal');
+S.act='online';
 
 /* ── 6. previous round: editor gone, status bar trimmed, meta strip reworked ── */
 console.log('6) previous round');

@@ -38,8 +38,8 @@ global.navigator={userAgent:'node'};
 /* eval'd const/let stay in eval's scope, so hoist what the checks need onto global */
 eval(js+`
 ;Object.assign(global,{ROWS,VIEWS,TITLES,S,buildList,focusable,activeLinks,
-  confirm,back,home,maxFocus,metaStrip,viewHomeNormal,viewHomeAgg,renderStatus,
-  renderFooter,curLink,maskPhone,rowsAcct,rowsMenu,rowsDev,
+  confirm,back,home,maxFocus,moveFocus,metaStrip,viewHomeNormal,viewHomeAgg,renderStatus,
+  renderFooter,renderHeader,curLink,maskPhone,rowsAcct,rowsMenu,rowsDev,rowsBright,
   unbindPending,unbindLeft,UNBIND_TTL,mmss});
 `);
 
@@ -131,13 +131,16 @@ S.wifi.on=true;renderStatus();
 ok('guest wifi removed',!/访客/.test(src),'still referenced');
 ok('auto-brightness present',/autoBright/.test(src)&&/自动亮度/.test(src),'missing');
 ok('disconnect button present',/dc-btn/.test(src)&&/断开/.test(src),'missing');
-ok('bind page wording updated',
-  /使用松果智联 APP 扫码绑定设备/.test(src)
+/* the bind page was redesigned to a single QR + 5-step guide (user edit between
+   v2.6 and v2.7); lock that shape so the old dual-code layout can't silently return */
+ok('bind page is single-QR with the 5-step guide',
+  /扫码下载松果智联APP或绑定设备/.test(src)
   &&/松果智联 APP 注册 \/ 登录账号/.test(src)
+  &&/扫码绑定本设备/.test(src)
   &&/APP 内完成内置卡实名认证 \/ 二次认证/.test(src)
-  &&/扫码下载松果智联 APP/.test(src)
-  &&/在手机应用市场搜索/.test(src),'wording mismatch');
-ok('two QR codes on bind page',/qr bind/.test(src)&&/qr dl/.test(src),'missing');
+  &&/购买套餐或插入外置卡/.test(src),'wording mismatch');
+ok('bind page carries exactly one QR',
+  /class="qr bind"/.test(src)&&!/qr dl/.test(src),'dual-code layout or missing code');
 ok('home does not scroll',/nohome/.test(src)&&/overflow:hidden/.test(src),'scroll not disabled');
 ok('home overflow alarm wired',/checkFit/.test(src)&&/fitWarn/.test(src)&&/主页溢出/.test(src),
   'nohome would crop silently');
@@ -291,6 +294,123 @@ ok('opens confirm modal',!!S.modal,'no modal');
 if(S.modal&&S.modal.onYes){S.modal.onYes();S.modal=null}
 ok('removes the device',S.clients.length===n0-1,`${S.clients.length} vs ${n0-1}`);
 ok('count stays derived',!/wifi\.clients/.test(src),'stale S.wifi.clients reference');
+
+/* ── 9. v2.7: smart-select gates manual cards, link page replaces the agg hub, key tone gone ── */
+console.log('9) v2.7');
+ok('smart selection defaults off',/smart:false/.test(src),'still defaults on');
+ok('key tone fully removed',!/keySound|按键提示音|\bbeep\b/.test(src),'still in source');
+ok('old agg hub page removed',!ROWS.agg&&!TITLES.agg&&!/rowsAgg\b|case 'agg'/.test(src),
+  'hub still registered');
+S.act='online';
+const m9=focusable(rowsMenu()).map(r=>r.t);
+ok('menu item 3 is the link-device page',m9[2]==='聚合链路设备',m9.join(' | '));
+S.page='menu';S.fx=2;S.stack=[];S.modal=null;confirm();
+ok('menu item 3 routes to the link page',S.page==='agglink',`landed on ${S.page}`);
+const alr=focusable(ROWS.agglink());
+ok('agg mode row lives in the link page',alr.some(r=>r.t==='聚合模式'&&r.chev===1),'entry lost');
+S.page='agglink';S.fx=alr.findIndex(r=>r.t==='聚合模式');S.modal=null;confirm();
+ok('link page reaches agg mode',S.page==='aggmode',`landed on ${S.page}`);
+S.smart=true;
+const srOn=focusable(ROWS.sim());
+ok('smart on disables every card row',srOn.slice(1).every(r=>r.dis),'a card is still selectable');
+ok('smart on drops every radio dot',srOn.slice(1).every(r=>r.rd===undefined),'stale selection dot shown');
+S.page='sim';S.fx=1;S.modal=null;confirm();
+ok('disabled card says why, not just unavailable',
+  /智能选网/.test(cache.toast.textContent),cache.toast.textContent);
+S.smart=false;
+const srOff=focusable(ROWS.sim());
+ok('smart off restores manual selection',srOff.some(r=>!r.dis&&r.rd!==undefined),'cards still gated');
+const dv7=focusable(rowsDev());
+ok('device settings is 7 rows without key tone',
+  dv7.length===7&&dv7.every(r=>r.t!=='按键提示音'),dv7.map(r=>r.t).join(','));
+S.page='home';S.fx=0;
+
+/* ── 10. v2.8 footer back / home buttons ── */
+console.log('10) v2.8 footer back');
+S.act='online';S.agg=true;
+/* every list page: back is slot m-2 (visual order: back first, home last) */
+let backBad=[];
+for(const p of Object.keys(ROWS)){
+  S.page=p;S.fx=0;const m=maxFocus();
+  S.fx=m-2;S.stack=[{p:'menu',f:0}];S.modal=null;S.brightEdit=false;
+  try{confirm()}catch(e){backBad.push(p+':'+e.message);continue}
+  if(S.page!=='menu')backBad.push(p+'->'+S.page);
+}
+ok('every list page backs out from its back slot',backBad.length===0,backBad.join(','));
+/* menu back with an empty stack lands home */
+S.page='menu';S.fx=0;const mm=maxFocus();
+S.fx=mm-2;S.stack=[];S.modal=null;confirm();
+ok('menu back slot lands on home',S.page==='home',S.page);
+/* footer markup: both buttons present, hints gone, focus lights them up */
+S.page='dev';S.fx=0;renderFooter();
+ok('subpage footer has the back button',/bk-btn/.test(cache.footSlot.innerHTML),cache.footSlot.innerHTML);
+ok('subpage footer has the home button',/主页/.test(cache.footSlot.innerHTML),cache.footSlot.innerHTML);
+ok('subpage footer drops the long-press hint',!/长按/.test(cache.footSlot.innerHTML),cache.footSlot.innerHTML);
+ok('subpage footer drops the key hints',!/选择|确认键/.test(cache.footSlot.innerHTML),cache.footSlot.innerHTML);
+S.fx=maxFocus()-2;renderFooter();
+ok('back button lights up on its slot',cache.footSlot.innerHTML.indexOf('bk-btn fx')<cache.footSlot.innerHTML.indexOf('主页'),cache.footSlot.innerHTML);
+S.fx=maxFocus()-1;renderFooter();
+ok('home button lights up on its slot',cache.footSlot.innerHTML.indexOf('bk-btn fx')>cache.footSlot.innerHTML.indexOf('返回'),cache.footSlot.innerHTML);
+S.fx=0;
+/* long-press machinery fully removed */
+ok('long-press fully removed',!/holdArmed|timers\.hold|长按|\.hold\b/.test(src),'residue in source');
+/* brightness: list page with OK-toggled adjust mode */
+ok('brightness is a list page now',!!ROWS.bright&&!VIEWS.bright,'registration wrong');
+ok('slider is a non-focusable row',
+  rowsBright().some(r=>'slider' in r)&&!focusable(rowsBright()).some(r=>'slider' in r),'slider wrong');
+S.page='bright';S.fx=0;S.autoBright=false;S.brightEdit=false;S.modal=null;S.stack=[{p:'dev',f:0}];
+confirm();
+ok('OK enters brightness adjust',S.brightEdit===true,'did not enter');
+const b0=S.bright;
+moveFocus(1);
+ok('↑↓ tunes inside adjust mode',S.bright===Math.min(100,b0+10),`${b0} -> ${S.bright}`);
+ok('adjust mode does not move focus',S.fx===0,'focus moved');
+confirm();
+ok('OK exits brightness adjust',S.brightEdit===false,'did not exit');
+S.autoBright=true;S.page='bright';S.fx=0;S.modal=null;confirm();
+ok('auto-brightness blocks adjust with a reason',
+  S.brightEdit===false&&/自动亮度/.test(cache.toast.textContent),cache.toast.textContent);
+S.autoBright=false;
+S.page='bright';S.fx=0;S.modal=null;S.stack=[{p:'dev',f:0}];confirm();
+back();
+ok('leaving resets adjust mode',S.brightEdit===false,'still editing');
+/* custom views: back slot (m-2) + action rows */
+S.diag=null;S.page='diag';S.fx=maxFocus()-2;S.stack=[{p:'menu',f:3}];S.modal=null;confirm();
+ok('diag back slot returns',S.page==='menu',S.page);
+S.page='diag';S.fx=0;S.stack=[{p:'menu',f:3}];S.modal=null;confirm();
+ok('diag action row starts the run',!!S.diag,'did not start');
+S.diag=null;
+S.upg=null;S.page='upg';S.fx=maxFocus()-2;S.stack=[{p:'dev',f:4}];S.modal=null;confirm();
+ok('upg back slot returns',S.page==='dev',S.page);
+S.page='upg';S.fx=0;S.stack=[];S.modal=null;confirm();
+ok('upg action row checks for updates',!!S.upg&&S.upg.stage==='check','did not check');
+S.upg=null;
+S.page='pwd';S.fx=maxFocus()-2;S.stack=[{p:'wifi',f:3}];S.modal=null;confirm();
+ok('pwd backs to wifi',S.page==='wifi',S.page);
+S.page='app';S.fx=maxFocus()-2;S.stack=[{p:'menu',f:8}];S.modal=null;confirm();
+ok('app backs to menu',S.page==='menu',S.page);
+const cl10=S.clients;S.clients=[];
+S.page='clients';S.fx=maxFocus()-2;S.stack=[{p:'wifi',f:5}];S.modal=null;confirm();
+ok('clients empty state backs out',S.page==='wifi',S.page);
+S.clients=cl10;
+/* home button: the very last slot of every subpage */
+S.page='devinfo';S.fx=0;const dm=maxFocus();
+S.fx=dm-1;S.stack=[{p:'dev',f:3},{p:'menu',f:5}];S.modal=null;confirm();
+ok('home slot jumps straight home',S.page==='home'&&S.stack.length===0,`${S.page} stack=${S.stack.length}`);
+/* page header is title-only — the icons moved out with the long-press removal */
+S.page='dev';renderHeader();
+ok('page header has no back/home icons',!/ph-i/.test(cache.hdrSlot.innerHTML),cache.hdrSlot.innerHTML);
+/* both wrap directions reach ‹ 返回 first: ↓ past the last row → back, ↑ past the first row → back (not home) */
+S.page='dev';S.modal=null;S.brightEdit=false;
+const wm=maxFocus();
+S.fx=wm-3;moveFocus(1);
+ok('↓ past last row lands on back slot',S.fx===wm-2,`fx=${S.fx}`);
+S.fx=0;moveFocus(-1);
+ok('↑ past first row lands on back slot, not home',S.fx===wm-2,`fx=${S.fx}`);
+S.fx=wm-1;moveFocus(1);
+ok('↓ past home wraps to first row',S.fx===0,`fx=${S.fx}`);
+S.fx=wm-2;moveFocus(-1);
+ok('↑ from back returns to last row',S.fx===wm-3,`fx=${S.fx}`);
 
 console.log(`\nsize ${(Buffer.byteLength(src)/1024).toFixed(0)}KB`);
 console.log(fail===0?'ALL PASS':`${fail} FAILED`);

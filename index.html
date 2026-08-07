@@ -96,15 +96,13 @@ body::before{
 
 /* ══ page header ══ */
 .phead{
-  height:36px;flex-shrink:0;display:grid;grid-template-columns:28px 1fr 28px;
+  height:36px;flex-shrink:0;display:grid;grid-template-columns:1fr;
   align-items:center;padding:0 8px;
 }
 .phead .ph-t{
   text-align:center;font-size:14px;font-weight:500;color:var(--text);
   letter-spacing:.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
 }
-.phead .ph-i{display:flex;align-items:center;justify-content:center;color:var(--text-2)}
-.phead .ph-i.act{color:var(--blue)}
 
 /* ══ scroll body ══ */
 .pbody{flex:1;overflow:hidden;position:relative;min-height:0}
@@ -303,6 +301,12 @@ body::before{
 .row.fx .r-t{color:#fff;font-weight:500}
 .row.disabled{opacity:.36}
 .row.danger .r-t{color:var(--alert)}
+/* brightness edit mode (v2.8): OK on the value row enters/leaves it, ↑↓ adjusts
+   while inside — blue accents mark the row as "live" */
+.row.editing .r-t{color:var(--blue)}
+.row.editing .r-v{color:var(--blue)}
+/* slider rendered as a non-focusable list row (brightness page) */
+.sld-row{padding:12px 10px 6px}
 
 /* iOS-style switch */
 .sw{
@@ -403,6 +407,15 @@ body::before{
   letter-spacing:.05em;border-top:1px solid #14171C;
 }
 .bbar b{color:var(--text-2);font-weight:500}
+/* footer back button — the virtual last focus slot of every subpage (v2.8).
+   Always visible (never scrolls away); the wrap-around focus loop reaches it
+   with one ↑ from the first row. */
+.bk-btn{
+  display:inline-flex;align-items:center;gap:2px;padding:2.5px 9px;margin-left:-9px;
+  border-radius:11px;color:var(--text-2);font-weight:500;letter-spacing:.05em;
+  transition:background .16s ease,color .16s ease;
+}
+.bk-btn.fx{background:var(--blue);color:#fff}
 
 /* ══ toast ══ */
 .toast{
@@ -456,11 +469,6 @@ body::before{
   box-shadow:inset 0 -1px 2px rgba(0,0,0,.35),0 0 0 1px rgba(10,132,255,.5),
     0 0 16px rgba(10,132,255,.6),0 0 34px rgba(10,132,255,.25);
 }
-.btn.hold::after{
-  content:'';position:absolute;inset:-4px;border-radius:inherit;
-  border:2px solid var(--blue);animation:ring 1s linear forwards;
-}
-@keyframes ring{from{opacity:.15;transform:scale(.85)}to{opacity:.95;transform:scale(1.18)}}
 .aggr-key{
   width:70px;height:70px;border-radius:18px;position:relative;
   background:linear-gradient(165deg,#343B45,#1A1F26);
@@ -568,11 +576,12 @@ body::before{
       <div class="lt">Controls</div>
       <div class="lg"><kbd>↑ ↓</kbd><span>移动焦点 / 调整数值</span></div>
       <div class="lg"><kbd>Enter</kbd><span>确认 · 进入 · 切换</span></div>
-      <div class="lg"><kbd>Hold ⏎</kbd><span>长按 1s 返回</span></div>
+      <div class="lg"><kbd>‹ 返回</kbd><span>底部栏左侧 · 焦点末位</span></div>
+      <div class="lg"><kbd>主页</kbd><span>底部栏右侧 · 直达主屏</span></div>
       <div class="lg"><kbd class="g">Space</kbd><span>物理聚合键</span></div>
       <div class="lg"><kbd>1</kbd><span>切换激活状态</span></div>
     </div>
-    <div class="rf">北纬 / 产品管理<br>REV v2.0 · 2026-08-05</div>
+    <div class="rf">北纬 / 产品管理<br>REV v2.8 · 2026-08-07</div>
   </aside>
 </div>
 <script>
@@ -595,6 +604,7 @@ const S={
   rj45:0,                  // 0 LAN | 1 WAN
   bright:80,
   autoBright:false,
+  brightEdit:false,        // brightness row in adjust mode: ↑↓ tunes, OK exits (v2.8)
   temp:42,                 // °C, from the SoC sensor
   data:{used:12.4,total:100},   // GB — remaining is derived, never stored twice
   clients:[
@@ -621,8 +631,7 @@ const S={
     {id:'u', nm:'USB',     tp:'USB',  sl:'USB',   op:'中国广电', sig:4, up:3.2, dn:2.2, st:'ok',    grp:'U'},
   ],
   linkA:0, linkB:1, useUsb:true,
-  timers:{toast:null,idle:null,hold:null,tick:null},
-  holdArmed:false,
+  timers:{toast:null,idle:null,tick:null},
   modal:null,
 };
 const SLEEP=['5 分钟','10 分钟','15 分钟','30 分钟','从不'];
@@ -674,9 +683,9 @@ function curLink(){
 }
 
 /* ════════ CHROME ════════ */
-function icoBack(){return `<svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+function icoBack(sz=18){return `<svg width="${sz}" height="${sz}" viewBox="0 0 24 24" fill="none"
   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>`}
-function icoHome(){return `<svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path
+function icoHome(sz=17){return `<svg width="${sz}" height="${sz}" viewBox="0 0 24 24" fill="currentColor"><path
   d="M12 3.2 3.4 10.3c-.3.2-.4.5-.4.8v9c0 .5.4.9.9.9h5.8v-6.3h4.6V21h5.8c.5 0 .9-.4.9-.9v-9c0-.3-.1-.6-.4-.8L12 3.2z"/></svg>`}
 
 /* N-mark traced from prototype/nfc.png: two vertical bars plus a diagonal
@@ -721,9 +730,7 @@ function renderHeader(){
   let h=$('hdrSlot');
   if(S.page==='home'||S.page==='home-normal'||S.page==='unact'||S.page==='nosim'){h.innerHTML='';return}
   h.innerHTML=`<div class="phead">
-    <div class="ph-i">${icoBack()}</div>
     <div class="ph-t">${TITLES[S.page]||''}</div>
-    <div class="ph-i act">${icoHome()}</div>
   </div>`;
 }
 function renderFooter(){
@@ -739,7 +746,12 @@ function renderFooter(){
   }else if(S.page==='unact'||S.page==='nosim'){
     f.innerHTML=`<div class="bbar"><span><b>OK</b> ${S.page==='unact'?'放大二维码':'进入设置'}</span><span>SN BW20260700001</span></div>`;
   }else{
-    f.innerHTML=`<div class="bbar"><span><b>↑↓</b> 选择 &nbsp; <b>确认键</b> 确认</span><span><b>长按确认键</b> 返回</span></div>`;
+    /* back & home are real buttons in the footer (v2.8), replacing the
+       long-press. They take the last two focus slots in visual order:
+       back first (m-2), then home (m-1) — so ↓ past the last row lands
+       on back. Back on an empty stack lands home anyway. */
+    const m=maxFocus(), bk=S.fx===m-2, hm=S.fx===m-1;
+    f.innerHTML=`<div class="bbar"><span class="bk-btn${bk?' fx':''}">${icoBack(10)} 返回</span><span class="bk-btn${hm?' fx':''}">${icoHome(11)} 主页</span></div>`;
   }
 }
 /* ════════ HOME — aggregation (ref layout) ════════ */
@@ -901,14 +913,17 @@ function viewNoSim(){
   </div>`;
 }
 /* ════════ LIST BUILDER ════════ */
-/* row: {t, s, v, sw, rd, chev, dis, disMsg, danger, sect} — sect rows are non-focusable */
+/* row: {t, s, v, sw, rd, chev, dis, disMsg, danger, sect, slider, editing}
+   sect rows are non-focusable; slider rows render the brightness slider and
+   are non-focusable too; editing marks a row whose value is being tuned */
 function buildList(rows){
   let fi=-1;
   let html=rows.map(r=>{
     /* 'sect' in r — an empty string is a spacer, still non-focusable */
     if('sect' in r)return `<div class="sect${r.sect?'':' gap'}">${r.sect}</div>`;
+    if('slider' in r)return `<div class="sld-row"><div class="sld${r.dim?' dim':''}"><div class="sf" style="width:${r.slider}%"></div><div class="sk" style="left:${r.slider}%"></div></div></div>`;
     fi++;
-    let cls='row'+(fi===S.fx?' fx':'')+(r.dis?' disabled':'')+(r.danger?' danger':'');
+    let cls='row'+(fi===S.fx?' fx':'')+(r.dis?' disabled':'')+(r.danger?' danger':'')+(r.editing?' editing':'');
     let right='';
     if(r.sw!==undefined)right=`<span class="sw ${r.sw?'on':''}"><i></i></span>`;
     else if(r.rd!==undefined)right=`<span class="rd ${r.rd?'on':''}"></span>`;
@@ -920,7 +935,7 @@ function buildList(rows){
   }).join('');
   return `<div class="list">${html}</div>`;
 }
-const focusable=rows=>rows.filter(r=>!('sect' in r));
+const focusable=rows=>rows.filter(r=>!('sect' in r)&&!('slider' in r));
 
 /* ════════ PAGE ROW DEFINITIONS ════════ */
 function rowsMenu(){
@@ -1082,40 +1097,32 @@ function viewClients(){
       <b style="color:var(--text-2);font-family:var(--num)">OK</b> 断开所选设备</div>
   </div>`;
 }
-function viewBright(){
-  let a=S.autoBright;
-  return `<div style="padding:14px 8px">
-    <div style="display:flex;justify-content:space-between;align-items:baseline;
-      opacity:${a?'.42':'1'};transition:opacity .2s">
-      <span style="font-size:13px">屏幕亮度</span>
-      <span style="font-family:var(--num);font-size:20px;font-weight:600;color:var(--blue)">${S.bright}%</span>
-    </div>
-    <div class="sld${a?' dim':''}"><div class="sf" style="width:${S.bright}%"></div>
-      <div class="sk" style="left:${S.bright}%"></div></div>
-    <div style="font-size:10.5px;color:var(--text-3);margin-top:9px;line-height:1.6">
-      ${a?'自动亮度已开启，手动调节不可用':'↑ 调亮 &nbsp;·&nbsp; ↓ 调暗'}</div>
-    <div class="row" style="margin-top:18px;border-top:1px solid var(--divider);
-      border-bottom:1px solid var(--divider);border-radius:0">
-      <span class="r-l"><span class="r-t">自动亮度</span>
-        <span class="r-s">按环境光自动调节</span></span>
-      <span class="sw ${a?'on':''}"><i></i></span>
-    </div>
-    <div style="font-size:10px;color:var(--text-3);margin-top:11px;text-align:center">
-      <b style="color:var(--text-2)">OK</b> 切换自动亮度 &nbsp;·&nbsp;
-      <b style="color:var(--text-2)">长按</b> 返回</div>
-  </div>`;
+/* brightness became a plain list page in v2.8: OK on the value row enters an
+   adjust mode (↑↓ tunes ±10%, OK exits) instead of ↑↓ always tuning — that's
+   what frees ↑↓ to reach the auto-brightness row and the footer back button.
+   The slider stays, rendered as a non-focusable row. */
+function rowsBright(){
+  return [
+    {slider:S.bright,dim:S.autoBright},
+    {t:'屏幕亮度',v:S.bright+'%',
+      ...(S.brightEdit?{s:'↑↓ 调节 · OK 完成',editing:1}:{}),
+      dis:S.autoBright,disMsg:'自动亮度开启中，由系统自动调节'},
+    {t:'自动亮度',s:'按环境光自动调节',sw:S.autoBright},
+  ];
 }
 function viewDiag(){
   let d=S.diag;
-  if(!d)return `<div class="notice" style="padding:0 26px">
+  if(!d)return `<div class="notice" style="padding:0 26px;flex:none;min-height:0">
     <div class="nt-ic" style="background:rgba(10,132,255,.14)">
       <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="var(--blue)"
         stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M16.5 16.5 21 21"/></svg>
     </div>
     <div class="nt-t">网络诊断</div>
     <div class="nt-d">逐项检测 6 个网络环节<br>约需 10 秒</div>
-    <div style="margin-top:20px;font-size:11.5px;color:var(--blue)">按 OK 开始检测</div>
-  </div>`;
+  </div>
+  <div class="list"><div class="row${S.fx===0?' fx':''}">
+    <span class="r-l"><span class="r-t">开始检测</span></span>
+    <span class="r-v"><span class="chev">›</span></span></div></div>`;
   let done=d.results.filter(r=>r).length===DIAG.length;
   let passed=d.results.filter(r=>r&&r.ok).length;
   return `<div style="padding-top:4px">
@@ -1130,7 +1137,10 @@ function viewDiag(){
     }).join('')}
     ${done?`<div style="text-align:center;margin-top:14px;font-size:12px;
       color:${passed===DIAG.length?'var(--up)':'var(--warn)'}">
-      ${passed===DIAG.length?'全部 6 项通过 ✓':`${passed}/6 项通过`}</div>`:''}
+      ${passed===DIAG.length?'全部 6 项通过 ✓':`${passed}/6 项通过`}</div>
+    <div class="list" style="margin-top:10px"><div class="row${S.fx===0?' fx':''}">
+      <span class="r-l"><span class="r-t">重新检测</span></span>
+      <span class="r-v"><span class="chev">›</span></span></div></div>`:''}
   </div>`;
 }
 function viewUpg(){
@@ -1141,9 +1151,8 @@ function viewUpg(){
         <span class="r-s">2026-07-15 发布</span></span><span class="r-v">v2.1.3</span></div>
       <div class="row"><span class="r-l"><span class="r-t">设备 ID</span></span>
         <span class="r-v">BW-LIVE-001</span></div>
-    </div>
-    <div class="notice" style="flex:none;padding:26px 20px 0">
-      <div style="font-size:11.5px;color:var(--blue)">按 OK 检查更新</div>
+      <div class="row${S.fx===0?' fx':''}"><span class="r-l"><span class="r-t">检查更新</span></span>
+        <span class="r-v"><span class="chev">›</span></span></div>
     </div></div>`;
   if(u.stage==='check')return `<div class="notice">
     <span class="spin" style="width:22px;height:22px;border-width:2px"></span>
@@ -1153,7 +1162,9 @@ function viewUpg(){
     <div style="font-size:10.5px;color:var(--text-3);font-family:var(--num);margin-top:2px">32.6 MB</div>
     <div style="margin-top:14px;font-size:11.5px;color:var(--text-2);line-height:1.85">
       · 优化聚合算法延迟<br>· 修复 Wi-Fi 断连问题<br>· 提升弱网推流稳定性</div>
-    <div style="margin-top:20px;font-size:11.5px;color:var(--blue)">按 OK 开始升级</div>
+    <div class="list" style="margin-top:16px"><div class="row${S.fx===0?' fx':''}">
+      <span class="r-l"><span class="r-t">开始升级</span></span>
+      <span class="r-v"><span class="chev">›</span></span></div></div>
     ${S.batt<=20?`<div class="hint-bar" style="margin:14px 0 0"><span class="hb-t">电量低于 20%，请先充电</span></div>`:''}
   </div>`;
   if(u.stage==='run')return `<div style="padding:24px 8px;text-align:center">
@@ -1184,18 +1195,26 @@ function viewApp(){
 const ROWS={
   menu:rowsMenu, acct:rowsAcct, wifi:rowsWifi, sim:rowsSim, agglink:rowsAggLink,
   aggmode:rowsAggMode, net:rowsNet, dev:rowsDev, devinfo:rowsDevInfo,
+  bright:rowsBright,
   pickA:()=>rowsPick('A'), pickB:()=>rowsPick('B'),
   sleep:()=>SLEEP.map((s,i)=>({t:s,rd:S.sleepIdx===i})),
   lang:()=>['中文','English'].map((s,i)=>({t:s,rd:S.lang===i})),
 };
 const VIEWS={
   home:viewHomeAgg, 'home-normal':viewHomeNormal, unact:viewUnact, nosim:viewNoSim,
-  pwd:viewWifiPwd, clients:viewClients, bright:viewBright,
+  pwd:viewWifiPwd, clients:viewClients,
   diag:viewDiag, upg:viewUpg, app:viewApp,
 };
 function maxFocus(){
-  if(ROWS[S.page])return focusable(ROWS[S.page]()).length;
-  if(S.page==='clients')return S.clients.length;   // custom view with focusable rows
+  /* +2 on every subpage: footer back button (slot m-2) and home button (m-1),
+     in visual order — ↓ past the last row reaches back first */
+  if(ROWS[S.page])return focusable(ROWS[S.page]()).length+2;
+  if(S.page==='clients')return S.clients.length+2;
+  /* diag / upg expose one action row (start / re-run / upgrade) only when the
+     stage has something to trigger; the last two slots are back / home */
+  if(S.page==='diag')return !S.diag||S.diag.cur>=DIAG.length?3:2;
+  if(S.page==='upg')return !S.upg||S.upg.stage==='found'?3:2;
+  if(S.page==='pwd'||S.page==='app')return 2;
   return 0;
 }
 function renderBody(){
@@ -1244,14 +1263,15 @@ function syncRail(){
 }
 
 /* ════════ NAV ════════ */
-function go(p,f=0){S.stack.push({p:S.page,f:S.fx});S.page=p;S.fx=f;render();resetIdle()}
+function go(p,f=0){S.stack.push({p:S.page,f:S.fx});S.page=p;S.fx=f;S.brightEdit=false;render();resetIdle()}
 function back(){
   if(S.modal){closeModal();return}
+  S.brightEdit=false;
   if(S.stack.length){let x=S.stack.pop();S.page=x.p;S.fx=x.f;render()}else home();
   resetIdle();
 }
 function home(){
-  S.stack=[];S.fx=0;
+  S.stack=[];S.fx=0;S.brightEdit=false;
   S.page=S.act==='unactivated'?'unact':S.act==='no-sim'?'nosim':(S.agg?'home':'home-normal');
   render();resetIdle();
 }
@@ -1288,6 +1308,12 @@ function confirm(){
   // guarded rows
   let rows=ROWS[p]?focusable(ROWS[p]()):null;
   if(rows&&rows[f]&&rows[f].dis){toast(rows[f].disMsg||'当前不可用');return}
+  /* the footer buttons sit at the last two focus slots of every subpage,
+     in visual order — back first (m-2), home last (m-1). Intercept globally
+     so no case below ever sees those indexes */
+  const mf=maxFocus();
+  if(mf&&f===mf-2){back();return}
+  if(mf&&f===mf-1){home();return}
 
   switch(p){
     case 'menu':{
@@ -1368,10 +1394,15 @@ function confirm(){
     case 'sleep':{S.sleepIdx=f;toast('自动休眠 → '+SLEEP[f],'ok');back();break}
     case 'lang':{S.lang=f;toast(f?'Language → English':'语言 → 中文','ok');back();break}
     case 'upg': stepUpg(); break;
-    case 'app': toast('二维码已放大'); break;
     case 'bright':{
-      S.autoBright=!S.autoBright;
-      toast('自动亮度 '+(S.autoBright?'已开启':'已关闭'),S.autoBright?'ok':'');
+      if(f===0){
+        /* the dis guard above already toasted when auto-brightness owns the
+           value, so reaching here means manual mode — toggle adjust mode */
+        S.brightEdit=!S.brightEdit;
+      }else if(f===1){
+        S.autoBright=!S.autoBright;
+        toast('自动亮度 '+(S.autoBright?'已开启':'已关闭'),S.autoBright?'ok':'');
+      }
       break;
     }
     case 'clients':{
@@ -1384,7 +1415,7 @@ function confirm(){
       });
       break;
     }
-    case 'pwd': back(); break;
+    case 'pwd': case 'app': break;   // only footer slots — intercepted above
   }
   render();resetIdle();
 }
@@ -1438,11 +1469,9 @@ function flash(id,ms=130){let e=$(id);if(!e)return;e.classList.add('hit');
   setTimeout(()=>e.classList.remove('hit'),ms)}
 
 /* ════════ INPUT ════════ */
-let downAt=0;
 function moveFocus(d){
-  // brightness page: up/down adjusts value instead of focus
-  if(S.page==='bright'){
-    if(S.autoBright){toast('自动亮度已开启');return}
+  // brightness adjust mode: OK on the value row enters it, ↑↓ tunes, OK exits
+  if(S.page==='bright'&&S.brightEdit){
     S.bright=Math.max(10,Math.min(100,S.bright+d*10));
     render();return;
   }
@@ -1454,19 +1483,21 @@ function moveFocus(d){
   }
   let m=maxFocus();
   if(!m)return;
-  S.fx=(S.fx+d+m)%m;   // wrap around — long lists stay reachable
+  let n=S.fx+d;
+  if(n<0)n=m-2;        // ↑ past the first row lands on ‹ 返回, not 主页 — both directions reach back first
+  else if(n>=m)n=0;    // ↓ past 主页 wraps to the first row
+  S.fx=n;
   render();
 }
 document.addEventListener('keydown',e=>{
   resetIdle();
   if(e.key==='Enter'){
     e.preventDefault();
-    if(e.repeat)return;              // ignore OS key-repeat: it would reset the hold timer
-    downAt=Date.now();
-    $('bOk').classList.add('hit','hold');
-    clearTimeout(S.timers.hold);
-    S.holdArmed=false;
-    S.timers.hold=setTimeout(()=>{S.holdArmed=true;back()},1000);
+    /* ignore OS key-repeat: a held key would otherwise re-fire confirm and
+       flapping toggles (v2.8: back is the footer button, no long-press left) */
+    if(e.repeat)return;
+    flash('bOk');
+    confirm();
     return;
   }
   if(e.key==='ArrowUp'){e.preventDefault();flash('bUp');moveFocus(-1);return}
@@ -1480,14 +1511,6 @@ document.addEventListener('keydown',e=>{
     home();
     toast('演示状态 · '+({unactivated:'未激活','no-sim':'无可用 SIM',online:'已激活在线'})[S.act]);
   }
-});
-document.addEventListener('keyup',e=>{
-  if(e.key!=='Enter')return;
-  e.preventDefault();
-  $('bOk').classList.remove('hit','hold');
-  clearTimeout(S.timers.hold);
-  if(!S.holdArmed&&Date.now()-downAt<1000)confirm();
-  S.holdArmed=false;
 });
 
 /* ════════ LIVE DATA ════════ */
@@ -1514,7 +1537,7 @@ function jitter(){
 home();
 S.timers.tick=setInterval(jitter,1400);
 console.log('%cBeWinner 屏幕原型 v2','color:#0A84FF;font-weight:600');
-console.log('↑↓ 导航 / Enter 确认 / 长按Enter 返回 / Space 聚合键 / 1 切换状态');
+console.log('↑↓ 导航 / Enter 确认 / 底部栏‹返回 / Space 聚合键 / 1 切换状态');
 </script>
 </body>
 </html>

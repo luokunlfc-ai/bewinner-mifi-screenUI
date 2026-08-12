@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>BeWinner 直播盒子 · 屏幕UI原型 v2</title>
+<title>BeWinner 直播盒子 · 屏幕UI原型 v3（触控）</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Semi+Condensed:wght@500;600&family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet">
@@ -63,7 +63,7 @@ body::before{
 /* ══ screen ══ */
 .screen{
   width:320px;height:480px;background:var(--bg);border-radius:22px;
-  overflow:hidden;position:relative;
+  overflow:hidden;position:relative;touch-action:manipulation;
   box-shadow:0 0 0 1px #000,0 0 0 6px #0A0C0F,inset 0 0 30px rgba(0,0,0,.9);
 }
 .screen::after{
@@ -95,20 +95,32 @@ body::before{
 .sb-ic{display:flex;align-items:center;color:var(--blue)}
 
 /* ══ page header ══ */
+/* v3.1: three zones — back button left, centered title, home button right.
+   The settings grid (menu) shows the title alone: it exits via right-swipe. */
 .phead{
-  height:36px;flex-shrink:0;display:grid;grid-template-columns:1fr;
+  height:36px;flex-shrink:0;display:grid;grid-template-columns:1fr auto 1fr;
   align-items:center;padding:0 8px;
 }
 .phead .ph-t{
-  text-align:center;font-size:14px;font-weight:500;color:var(--text);
+  grid-column:2;text-align:center;font-size:14px;font-weight:500;color:var(--text);
   letter-spacing:.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
 }
+/* header nav buttons — same look as the old footer .bk-btn, just living on top */
+.hb-btn{
+  grid-column:1;justify-self:start;display:inline-flex;align-items:center;gap:3px;
+  padding:2.5px 9px;margin-left:-4px;border-radius:11px;cursor:pointer;
+  font-family:var(--num);font-size:9.5px;font-weight:500;letter-spacing:.05em;
+  color:var(--text-2);transition:background .16s ease,color .16s ease;
+}
+.hb-btn.r{grid-column:3;justify-self:end;margin-left:0;margin-right:-4px}
+.hb-btn:active{background:#1C212A}
+.hb-btn.fx{background:var(--blue);color:#fff}
 
 /* ══ scroll body ══ */
 .pbody{flex:1;overflow:hidden;position:relative;min-height:0}
 .pscroll{position:absolute;inset:0;padding:0 14px;overflow-y:auto;scrollbar-width:none}
 .pscroll::-webkit-scrollbar{display:none}
-/* home must fit one screen — no scrolling on the primary view */
+/* home & lock must fit one screen — no scrolling on the primary views */
 .pscroll.nohome{overflow:hidden}
 /* dev-only overflow alarm — never visible unless the home layout breaks */
 .fit-warn{
@@ -116,16 +128,35 @@ body::before{
   background:var(--alert);color:#fff;font-size:10px;font-weight:600;
   text-align:center;padding:3px 0;letter-spacing:.05em;
 }
-.pscroll::-webkit-scrollbar{display:none}
 /* ══ HOME: aggregation mode (ref: 聚合模式主页) ══ */
-.hz-title{
-  text-align:center;font-size:13px;font-weight:500;color:var(--text);
-  letter-spacing:.06em;margin:2px 0 0;
+/* badge row: just the mode chip, centered (v3.2). (v3.1 — the agg toggle grew
+   into the big button below the link list, the badge-row pill was too easy to
+   miss) */
+.hrow{
+  display:flex;align-items:center;justify-content:center;
+  margin-top:6px;padding:0 2px;
 }
-.hz-sub{
-  text-align:center;font-family:var(--num);font-size:9.5px;font-weight:500;
-  color:var(--text-3);letter-spacing:.14em;text-transform:uppercase;margin-top:3px;
+/* the prominent aggregation on/off bar between link list and Wi-Fi strip.
+   Filled blue = hold 2s to turn aggregation ON; red outline = hold to turn it
+   OFF. The .fill sweeps left→right as the hold progress (JS-driven — jitter()
+   re-renders every 1.4s, so a CSS transition would be reset mid-hold). */
+.bigagg{
+  position:relative;overflow:hidden;
+  margin-top:10px;height:40px;border-radius:11px;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  font-size:13px;font-weight:600;letter-spacing:.14em;
+  color:#fff;background:var(--blue);border:1px solid transparent;
+  transition:all .18s ease;
+  box-shadow:0 4px 18px rgba(10,132,255,.35);
 }
+.bigagg .fill{position:absolute;left:0;top:0;bottom:0;width:0;background:rgba(255,255,255,.28)}
+.bigagg .lbl{position:relative;z-index:1}
+.bigagg.on{
+  color:var(--alert);background:rgba(255,69,58,.1);
+  border-color:rgba(255,69,58,.4);box-shadow:none;
+}
+.bigagg.on .fill{background:rgba(255,69,58,.35)}
+.bigagg:active{transform:scale(.97)}
 /* thin arc gauge above the numbers */
 .arc{position:relative;height:26px;margin:2px 0 -7px}
 .arc svg{position:absolute;left:50%;transform:translateX(-50%);top:0}
@@ -158,13 +189,15 @@ body::before{
 }
 .rates{position:relative}
 
-/* ══ link rows — divider-only, no cards ══ */
+/* ══ link rows — divider-only, no cards; tappable in v3.0 (open link settings) ══ */
 .links{margin-top:9px}
 .lrow{
   display:grid;grid-template-columns:48px 1fr auto;align-items:center;gap:8px;
   height:34px;border-top:1px solid var(--divider);
 }
 .lrow:last-child{border-bottom:1px solid var(--divider)}
+.lrow.tap{cursor:pointer;border-radius:6px;transition:background .15s ease}
+.lrow.tap:active{background:#14171D}
 .lrow .l-nm{font-size:11.5px;color:var(--text);font-weight:400;white-space:nowrap}
 /* CN operator names — use the CN face, not the latin numeral face */
 .lrow .l-op{font-family:var(--cn);font-size:9.5px;color:var(--text-3);letter-spacing:0;
@@ -178,6 +211,9 @@ body::before{
 .lrow .l-rt .l-dn{color:var(--down)}
 .lrow.dim .l-nm,.lrow.dim .l-rt{color:var(--text-3)}
 .lrow.dim .l-rt span{color:var(--text-3)}
+/* v3.3: a modem group whose 数据连接 is closed — still listed, no data */
+.lrow.off{opacity:.55}
+.lrow.off .l-up,.lrow.off .l-dn{color:var(--text-3)}
 
 /* inline section head with right-hand count */
 .shead{
@@ -187,31 +223,9 @@ body::before{
 .shead .sh-t{font-size:10px;color:var(--text-3);letter-spacing:.1em}
 .shead .sh-c{font-family:var(--num);font-size:10px;color:var(--text-3);letter-spacing:.06em}
 
-/* ══ meta strip — 3 secondary metrics, divider separated ══ */
-/* traffic cell needs more room than the other two — its label carries
-   two words and its value two numbers, and 8.5px CJK wraps past ~93px */
-.mstrip{
-  display:grid;grid-template-columns:1.3fr .87fr .83fr;margin-top:11px;
-  border-top:1px solid var(--divider);border-bottom:1px solid var(--divider);
-}
-.mstrip .mc{padding:6px 2px;text-align:center;position:relative}
-.mstrip .mc+.mc::before{
-  content:'';position:absolute;left:0;top:22%;height:56%;width:1px;background:var(--divider);
-}
-.mstrip .mc-v{
-  font-family:var(--num);font-size:13px;font-weight:600;color:var(--text);
-  font-variant-numeric:tabular-nums;letter-spacing:-.01em;
-}
-/* CJK value cell ("内置-中国移动" = 7 glyphs). Must not wrap: a second line pushes
-   the home screen past its 410px budget. 10.5px keeps it inside the 1.3fr column. */
-.mstrip .mc-v.zh{font-family:inherit;font-size:10.5px;font-weight:500;white-space:nowrap}
-.mstrip .mc-v .sep{color:var(--text-3);font-weight:400;margin:0 1px}
-.mstrip .mc-v .dim{color:var(--text-2);font-weight:500}
-.mstrip .mc-v.warm{color:var(--warn)}
-.mstrip .mc-v.hot{color:var(--alert)}
-.mstrip .mc-v .unit{font-size:8.5px;color:var(--text-3);font-weight:400;margin-left:2px}
-.mstrip .mc-l{font-size:8.5px;color:var(--text-3);margin-top:3px;letter-spacing:.02em;
-  white-space:nowrap}
+/* ══ meta strip removed in v3.1 — its slot now carries the big aggregation
+   button; traffic moved to the home footer, temperature/uptime live in
+   设备信息. CSS kept out of the bundle with it. ══ */
 
 /* ══ wifi footer bar on home ══ */
 .wbar{
@@ -223,9 +237,9 @@ body::before{
 .wbar .wb-s{font-size:11.5px;color:var(--text);min-width:0;
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .wbar .wb-c{font-family:var(--num);font-size:10px;color:var(--text-3);flex-shrink:0}
-/* password line: key label + monospace value */
+/* password line: key label + monospace value (masked until the eye is tapped) */
 .wbar .wb-p{
-  grid-column:2/4;display:flex;align-items:baseline;gap:5px;min-width:0;
+  grid-column:2/4;display:flex;align-items:center;gap:5px;min-width:0;
 }
 .wbar .wb-p em{font-style:normal;font-size:9.5px;color:var(--text-3);
   letter-spacing:.06em;flex-shrink:0}
@@ -233,6 +247,12 @@ body::before{
   font-family:var(--num);font-size:11.5px;font-weight:500;color:var(--text-2);
   letter-spacing:.05em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
 }
+.wbar .eye{
+  display:inline-flex;align-items:center;color:var(--text-3);cursor:pointer;
+  padding:2px;margin-left:auto;flex-shrink:0;border-radius:6px;
+  transition:color .15s ease;
+}
+.wbar .eye:active{color:var(--blue)}
 .wbar.off svg{color:var(--text-3)}
 .wbar.off .wb-s{color:var(--text-3)}
 
@@ -252,6 +272,9 @@ body::before{
 .sigrat{display:inline-flex;align-items:flex-end;gap:2px}
 .sigrat .rat{font-family:var(--num);font-size:7px;font-weight:700;color:var(--text-2);
   letter-spacing:.02em;padding-bottom:.5px}
+/* wired link carries an ETH tag instead of signal bars */
+.ethtag{font-family:var(--num);font-size:7px;font-weight:700;color:var(--text-2);
+  letter-spacing:.06em;border:1px solid #3A3F49;border-radius:3px;padding:1px 3px}
 
 /* aggregation badge */
 .agg-chip{
@@ -263,7 +286,7 @@ body::before{
   box-shadow:0 0 7px var(--up);animation:pulse 2s ease-in-out infinite}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
 
-/* single-card badge — same shape as the aggregation chip, neutral colour
+/* normal-mode badge — same shape as the aggregation chip, neutral colour
    so "aggregation on" stays the only green state on the home screen */
 .agg-chip.mono{background:rgba(142,142,147,.15);color:var(--text-2)}
 .agg-chip.mono .dot{background:var(--text-2);box-shadow:none;animation:none}
@@ -273,18 +296,67 @@ body::before{
 }
 .hint-bar .hb-t{font-size:11px;color:var(--warn);line-height:1.45}
 
-/* ══ page dots ══ */
-.dots{
-  flex-shrink:0;height:22px;display:flex;align-items:center;justify-content:center;gap:5px;
+/* ══ LOCK SCREEN (v3.0, ref: 锁屏.png) — hexagon ring + hold-to-unlock ══ */
+.lock{
+  flex:1;display:flex;flex-direction:column;align-items:center;
+  padding-top:20px;cursor:pointer;
 }
-.dots i{width:4.5px;height:4.5px;border-radius:50%;background:#2A2E36;transition:all .3s}
-.dots i.on{background:var(--text-2);width:14px;border-radius:3px}
+.lk-title{font-size:15px;font-weight:500;letter-spacing:.06em}
+.lk-sub{
+  font-family:var(--num);font-size:9px;color:var(--text-3);
+  letter-spacing:.18em;text-transform:uppercase;margin-top:4px;
+}
+.lk-hex{position:relative;margin-top:24px;width:150px;height:150px}
+.lk-hex>svg{position:absolute;inset:0}
+.lk-hex .in{
+  position:absolute;inset:0;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:7px;
+}
+.lk-r{display:flex;align-items:baseline;gap:5px;font-family:var(--num)}
+.lk-r .n{font-size:23px;font-weight:600;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.lk-r .u{font-size:8px;color:var(--text-3);letter-spacing:.12em}
+.lk-r.up .n{color:var(--up);text-shadow:0 0 16px rgba(50,215,75,.35)}
+.lk-r.dn .n{color:var(--down);text-shadow:0 0 16px rgba(63,199,230,.3)}
+.lk-dev{
+  margin-top:16px;font-size:11px;color:var(--text-2);
+  display:flex;align-items:center;gap:6px;
+}
+.lk-dev svg{color:var(--text-3)}
+.lk-hold{position:relative;margin-top:22px;width:56px;height:56px}
+.lk-hold>svg{position:absolute;inset:0;transform:rotate(-90deg)}
+.lk-hold .lk-ic{
+  position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  color:var(--text-2);
+}
+.lk-hint{margin-top:9px;font-size:10.5px;color:var(--text-3);letter-spacing:.1em}
+
+/* ══ SETTINGS GRID (v3.0, ref: 设置页.jpg) — 3×3 icon tiles ══ */
+.g9{
+  display:grid;grid-template-columns:repeat(3,1fr);gap:6px 4px;
+  padding-top:16px;
+}
+.tile{
+  display:flex;flex-direction:column;align-items:center;gap:8px;
+  padding:12px 4px 10px;border-radius:12px;cursor:pointer;
+  transition:background .15s ease,transform .1s ease;
+}
+.tile:active{transform:scale(.94);background:#14171D}
+.tile .ti{
+  width:48px;height:48px;border-radius:50%;display:flex;align-items:center;
+  justify-content:center;box-shadow:0 4px 14px rgba(0,0,0,.45);
+}
+.tile .tt{font-size:11px;color:var(--text);letter-spacing:.02em}
+.tile.dis{opacity:.32}
+/* keyboard-demo focus ring (touch needs none) */
+.tile.fx{background:#161A20}
+.tile.fx .ti{box-shadow:0 0 0 2px var(--blue),0 4px 14px rgba(0,0,0,.45)}
+
 /* ══ SETTINGS LIST (ref: 设置页) — divider rows, iOS switches ══ */
 .list{padding-bottom:6px}
 .row{
   position:relative;display:grid;grid-template-columns:1fr auto;align-items:center;
   gap:10px;min-height:44px;padding:7px 10px;border-bottom:1px solid var(--divider);
-  border-radius:8px;transition:background .16s ease;
+  border-radius:8px;transition:background .16s ease;cursor:pointer;
 }
 .row:last-child{border-bottom:none}
 .row .r-l{min-width:0}
@@ -305,7 +377,7 @@ body::before{
 .row.fx .r-t{color:#fff;font-weight:500}
 .row.disabled{opacity:.36}
 .row.danger .r-t{color:var(--alert)}
-/* brightness edit mode (v2.8): OK on the value row enters/leaves it, ↑↓ adjusts
+/* brightness edit mode: tap the value row to enter/leave it, ↑↓ adjusts
    while inside — blue accents mark the row as "live" */
 .row.editing .r-t{color:var(--blue)}
 .row.editing .r-v{color:var(--blue)}
@@ -348,12 +420,14 @@ body::before{
 .sld.dim .sf{background:var(--text-3)}
 .sld.dim .sk{background:var(--text-2)}
 
-/* ══ client disconnect button ══ */
-.dc-btn{
+/* ══ client disconnect / ban buttons (v3.4: 接入设备 row actions) ══ */
+.dc-btn,.cl-btn{
   font-size:10.5px;color:var(--text-3);padding:3.5px 10px;border-radius:20px;
-  border:1px solid var(--divider);flex-shrink:0;transition:all .16s ease;
+  border:1px solid var(--divider);flex-shrink:0;transition:all .16s ease;cursor:pointer;
 }
 .dc-btn.on{color:var(--alert);border-color:rgba(255,69,58,.5);background:rgba(255,69,58,.12)}
+.cl-btn.ban.on{color:var(--warn);border-color:rgba(255,159,10,.5);background:rgba(255,159,10,.12)}
+.cl-btn.unban{color:var(--blue);border-color:rgba(10,132,255,.45);background:rgba(10,132,255,.1)}
 
 /* ══ diagnosis ══ */
 .dg{display:flex;align-items:center;gap:10px;min-height:38px;
@@ -380,16 +454,8 @@ body::before{
 .qr{width:150px;height:150px;background:#fff;border-radius:10px;padding:9px;
   box-shadow:0 6px 20px rgba(0,0,0,.5)}
 .qr svg{display:block;width:100%;height:100%}
-/* binding page carries two codes: bind (primary) + download (secondary) */
+/* binding page carries a single code: bind + download in one */
 .qr.bind{width:124px;height:124px;padding:7px;border-radius:9px}
-.qr.dl{width:62px;height:62px;padding:4px;border-radius:6px;flex-shrink:0}
-.dl-blk{
-  display:flex;align-items:center;gap:10px;text-align:left;
-  margin-top:11px;padding-top:10px;border-top:1px solid var(--divider);width:100%;
-}
-.dl-tx{font-size:10.5px;color:var(--text-2);line-height:1.55}
-.dl-tx span{color:var(--text-3);font-size:10px}
-.dl-tx b{color:var(--text-2);font-weight:500}
 
 /* ══ big centered notice ══ */
 .notice{
@@ -411,15 +477,9 @@ body::before{
   letter-spacing:.05em;border-top:1px solid #14171C;
 }
 .bbar b{color:var(--text-2);font-weight:500}
-/* footer back button — the virtual last focus slot of every subpage (v2.8).
-   Always visible (never scrolls away); the wrap-around focus loop reaches it
-   with one ↑ from the first row. */
-.bk-btn{
-  display:inline-flex;align-items:center;gap:2px;padding:2.5px 9px;margin-left:-9px;
-  border-radius:11px;color:var(--text-2);font-weight:500;letter-spacing:.05em;
-  transition:background .16s ease,color .16s ease;
-}
-.bk-btn.fx{background:var(--blue);color:#fff}
+/* v3.3: .bk-btn removed with the footer action buttons — the unact QR button
+   and the nosim settings button are gone (nosim reaches settings by swipe). */
+#fHome{margin-left:0;margin-right:-9px}
 
 /* ══ toast ══ */
 .toast{
@@ -427,7 +487,7 @@ body::before{
   background:rgba(28,31,37,.97);color:#fff;font-size:11.5px;padding:8px 16px;
   border-radius:20px;opacity:0;transition:all .26s cubic-bezier(.16,1,.3,1);
   z-index:80;white-space:nowrap;box-shadow:0 8px 24px rgba(0,0,0,.6);
-  backdrop-filter:blur(12px);
+  backdrop-filter:blur(12px);pointer-events:none;
 }
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 .toast.ok{color:var(--up)}
@@ -450,54 +510,10 @@ body::before{
 .modal-box .m-b{display:flex;gap:8px}
 .modal-box .m-b div{
   flex:1;padding:8px;border-radius:9px;font-size:12px;background:#282C34;color:var(--text-2);
+  cursor:pointer;
 }
 .modal-box .m-b div.fx{background:var(--alert);color:#fff;font-weight:500}
 .modal-box .m-b div.fx.safe{background:var(--blue)}
-/* ══ physical control deck ══ */
-.deck{margin-top:14px;display:grid;grid-template-columns:1fr auto;gap:14px;align-items:center}
-.dpad{display:grid;grid-template-columns:repeat(3,28px);grid-template-rows:repeat(3,28px);
-  gap:3px;place-items:center}
-.btn{
-  border-radius:7px;display:flex;align-items:center;justify-content:center;
-  background:linear-gradient(168deg,#343B45,#1C2128);color:#7E8593;
-  font-family:var(--num);font-size:10px;font-weight:600;position:relative;
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.13),inset 0 -2px 3px rgba(0,0,0,.45),0 2px 4px rgba(0,0,0,.5);
-  transition:transform .07s ease,box-shadow .13s,color .13s,background .13s;
-}
-.btn.up,.btn.dn{width:28px;height:28px}
-.btn.ok{width:28px;height:28px;border-radius:50%;font-size:8.5px;
-  background:linear-gradient(168deg,#414A57,#222833)}
-.btn.hit{
-  transform:translateY(2px) scale(.95);color:#04070A;
-  background:linear-gradient(168deg,var(--blue),#0060DF);
-  box-shadow:inset 0 -1px 2px rgba(0,0,0,.35),0 0 0 1px rgba(10,132,255,.5),
-    0 0 16px rgba(10,132,255,.6),0 0 34px rgba(10,132,255,.25);
-}
-.aggr-key{
-  width:70px;height:70px;border-radius:18px;position:relative;
-  background:linear-gradient(165deg,#343B45,#1A1F26);
-  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.13),inset 0 -3px 5px rgba(0,0,0,.5),0 3px 7px rgba(0,0,0,.55);
-  transition:all .22s cubic-bezier(.16,1,.3,1);
-}
-.aggr-key .ak-g{color:#6E757F;display:flex;transition:color .22s,filter .22s}
-.aggr-key .ak-t{font-family:var(--cond);font-size:10px;font-weight:600;
-  letter-spacing:.13em;color:#5A6069;text-transform:uppercase;transition:color .22s}
-.aggr-key.live{
-  background:linear-gradient(165deg,#0B3A1C,#052113);
-  box-shadow:inset 0 1px 0 rgba(50,215,75,.28),inset 0 -3px 5px rgba(0,0,0,.5),
-    0 0 0 1px rgba(50,215,75,.4),0 0 24px rgba(50,215,75,.4),0 0 54px rgba(50,215,75,.14);
-  animation:breathe 2.7s ease-in-out infinite;
-}
-.aggr-key.live .ak-g{color:var(--up);filter:drop-shadow(0 0 8px rgba(50,215,75,.85))}
-.aggr-key.live .ak-t{color:var(--up)}
-@keyframes breathe{
-  0%,100%{box-shadow:inset 0 1px 0 rgba(50,215,75,.28),inset 0 -3px 5px rgba(0,0,0,.5),
-    0 0 0 1px rgba(50,215,75,.4),0 0 24px rgba(50,215,75,.4),0 0 54px rgba(50,215,75,.14)}
-  50%{box-shadow:inset 0 1px 0 rgba(50,215,75,.4),inset 0 -3px 5px rgba(0,0,0,.5),
-    0 0 0 1px rgba(50,215,75,.6),0 0 36px rgba(50,215,75,.6),0 0 76px rgba(50,215,75,.24)}
-}
-.aggr-key.hit{transform:translateY(3px) scale(.95)}
 
 /* ══ annotation rail ══ */
 .rail{display:flex;flex-direction:column;gap:20px;
@@ -530,7 +546,7 @@ body::before{
 <body>
 <div class="stage">
   <div class="device">
-    <div class="screen">
+    <div class="screen" id="scr">
       <div class="vp">
         <div class="sbar" id="sbar"></div>
         <div id="hdrSlot"></div>
@@ -547,45 +563,32 @@ body::before{
         </div>
       </div>
     </div>
-    <div class="deck">
-      <div class="dpad">
-        <span></span><div class="btn up" id="bUp">▲</div><span></span>
-        <span></span><div class="btn ok" id="bOk">OK</div><span></span>
-        <span></span><div class="btn dn" id="bDn">▼</div><span></span>
-      </div>
-      <div class="aggr-key" id="bAggr">
-        <span class="ak-g"><svg width="22" height="22" viewBox="0 0 24 24" fill="none"
-          stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path
-          d="M9.5 14.5 5.8 18.2a3.7 3.7 0 0 1-5.2-5.2l3.7-3.7M14.5 9.5l3.7-3.7a3.7 3.7 0 0 1 5.2 5.2l-3.7 3.7"
-          transform="translate(0.3 0)"/><path d="M8.7 15.3l6.6-6.6"/></svg></span>
-        <span class="ak-t">聚合</span>
-      </div>
-    </div>
   </div>
 
   <aside class="rail">
     <div class="rh">
-      <em>Screen UI · v2</em>
+      <em>Screen UI · v3 触控</em>
       <h1>多网聚合<br>直播盒子</h1>
-      <p>双 5G 上行聚合。三维按键 + 独立聚合键，3.5″ 非触控串口屏。</p>
+      <p>四路上行聚合（双 Modem + USB + 有线）。3.5″ 触控屏，长按锁屏解锁。</p>
     </div>
     <div class="tele">
       <div class="tr"><span class="tk">Mode</span><span class="tv off" id="tMode">STANDBY</span></div>
       <div class="tr"><span class="tk">State</span><span class="tv" id="tState">—</span></div>
       <div class="tr"><span class="tk">Screen</span><span class="tv" id="tPage">—</span></div>
       <div class="tr"><span class="tk">Uplink</span><span class="tv" id="tUp">—</span></div>
-      <div class="tr"><span class="tk">Paths</span><span class="tv" id="tPath">0 / 3</span></div>
+      <div class="tr"><span class="tk">Paths</span><span class="tv" id="tPath">0 / 4</span></div>
     </div>
     <div class="lgd">
-      <div class="lt">Controls</div>
-      <div class="lg"><kbd>↑ ↓</kbd><span>移动焦点 / 调整数值</span></div>
-      <div class="lg"><kbd>Enter</kbd><span>确认 · 进入 · 切换</span></div>
-      <div class="lg"><kbd>‹ 返回</kbd><span>底部栏左侧 · 焦点末位</span></div>
-      <div class="lg"><kbd>主页</kbd><span>底部栏右侧 · 直达主屏</span></div>
-      <div class="lg"><kbd class="g">Space</kbd><span>物理聚合键</span></div>
-      <div class="lg"><kbd>1</kbd><span>切换激活状态</span></div>
+      <div class="lt">Controls（触屏为主，键盘仅演示）</div>
+      <div class="lg"><kbd>点击</kbd><span>选择 · 确认 · 开关</span></div>
+      <div class="lg"><kbd>左滑</kbd><span>主屏 → 设置九宫格</span></div>
+      <div class="lg"><kbd>右滑</kbd><span>设置页 → 主屏</span></div>
+      <div class="lg"><kbd>长按</kbd><span>锁屏 1s 解锁 · 聚合按钮 1s 切换</span></div>
+      <div class="lg"><kbd>‹ 返回 / 主页</kbd><span>子页面顶部栏两侧</span></div>
+      <div class="lg"><kbd class="g">Space</kbd><span>聚合即时切换（仅演示）</span></div>
+      <div class="lg"><kbd>1/2/L/Esc</kbd><span>激活 / 网线 / 锁屏 / 返回</span></div>
     </div>
-    <div class="rf">北纬 / 产品管理<br>REV v2.8 · 2026-08-07</div>
+    <div class="rf">北纬 / 产品管理<br>REV v3.3 · 2026-08-12</div>
   </aside>
 </div>
 <script>
@@ -600,26 +603,32 @@ const S={
   batt:97,
   uptime:9318,
   defIdx:0,
-  /* smart-select defaults OFF; while on, the system picks the cards and every
-     manual-selection row in 数据卡管理 greys out (rowsSim) */
-  smart:false,
-  wifi:{on:true,ssid:'BeWinner_5G_001',pwd:'bw88888888',band:true,nfc:true},
-  aggMode:0,
+  /* v3.4: 数据卡管理 moved off-screen (smart select / default card are now APP
+     concern, like Wi-Fi name/pwd); the wifi object gained per-band settings for
+     the 多频合一-off case. v3.5: each band gained its own on/off switch. */
+  wifi:{on:true,ssid:'BeWinner_5G_001',pwd:'bw88888888',band:true,nfc:true,
+    band24:{on:true,ssid:'BeWinner_2.4G_001',pwd:'bw88888888'},
+    band5:{on:true,ssid:'BeWinner_5G_001',pwd:'bw88888888'}},
+  pwdLink:'u',             // which Wi-Fi the password sheet shows: 'u' merged | '2' | '5'
+  banned:[],               // v3.4: banned devices — cannot connect to this box
   rj45:0,                  // 0 LAN | 1 WAN
   bright:80,
   autoBright:false,
-  brightEdit:false,        // brightness row in adjust mode: ↑↓ tunes, OK exits (v2.8)
+  brightEdit:false,        // brightness row in adjust mode: ↑↓ tunes, tap exits
+  showPwd:false,           // home Wi-Fi strip masks the password until the eye is tapped
   temp:42,                 // °C, from the SoC sensor
   data:{used:12.4,total:100},   // GB — remaining is derived, never stored twice
+  /* v3.5: devices are identified by MAC, shown below the name */
   clients:[
-    {n:'iPhone 15 Pro', ip:'192.168.1.101', r:'5 GHz'},
-    {n:'MacBook Pro',   ip:'192.168.1.102', r:'5 GHz'},
-    {n:'大疆 Action 5',  ip:'192.168.1.103', r:'2.4 GHz'},
+    {n:'iPhone 15 Pro', mac:'A4:83:E7:2F:9C:11', r:'5 GHz'},
+    {n:'MacBook Pro',   mac:'3C:22:FB:5A:77:42', r:'5 GHz'},
+    {n:'大疆 Action 5',  mac:'D8:3A:DD:20:0E:90', r:'2.4 GHz'},
   ],
   lang:0,
   sleepIdx:0,
   diag:null,
   upg:null,
+  linkId:'A',              // which link the 链路设置 page is editing
   /* bound account. The phone number is stored whole and masked at render time —
      a pre-masked copy would be a second source of truth for the same value. */
   /* unbindAt = when the request was pushed (0 = none outstanding). The pending
@@ -627,23 +636,25 @@ const S={
      would let the flag stay true after the 10-minute window lapsed. */
   acct:{name:'林望',phone:'13856726721',unbindAt:0},
   sims:[
-    /* sl = slot label shown on the single-card home ("内置-中国移动") */
+    /* sl = slot label shown on the normal-mode home ("内置-中国移动") */
     {id:'m', nm:'移动',    tp:'内置', sl:'内置',  op:'中国移动', sig:4, rat:'5G', up:5.2, dn:3.1, st:'ok',    grp:'A'},
     {id:'t', nm:'电信',    tp:'内置', sl:'内置',  op:'中国电信', sig:3, rat:'5G', up:4.1, dn:2.8, st:'ok',    grp:'B'},
     {id:'e1',nm:'外置卡1', tp:'外置', sl:'外置1', op:'中国联通', sig:4, rat:'4G', up:2.0, dn:1.5, st:'ok',    grp:'A'},
     {id:'e2',nm:'外置卡2', tp:'外置', sl:'外置2', op:'',        sig:0, rat:'',   up:0,   dn:0,   st:'empty', grp:'B'},
     {id:'u', nm:'USB',     tp:'USB',  sl:'USB',   op:'中国广电', sig:4, rat:'4G', up:3.2, dn:2.2, st:'ok',    grp:'U'},
   ],
-  linkA:0, linkB:1, useUsb:true,
-  timers:{toast:null,idle:null,tick:null},
+  /* v3.3: four aggregation paths — modem group A pick, group B pick, USB, and
+     a wired (RJ45) path. connA/connB are the modem groups' "数据连接" switches
+     (v3.3 replaced the old 参与聚合): off = that card has no data link and so
+     cannot aggregate. USB and wired auto-join the moment they are plugged in —
+     no config, no switch. */
+  linkA:0, linkB:1,
+  connA:true, connB:true,
+  eth:{plugged:true, up:7.8, dn:5.6},
+  timers:{toast:null,idle:null,tick:null,hold:null,agg:null,aggTick:null},
   modal:null,
 };
 const SLEEP=['5 分钟','10 分钟','15 分钟','30 分钟','从不'];
-const MODES=[
-  {n:'带宽叠加',d:'多路带宽实时叠加，最大化总吞吐'},
-  {n:'直播模式',d:'上行优先 QoS 保障，降低抖动'},
-  {n:'多发优选',d:'多路同时发送，接收端选最优'},
-];
 const DIAG=[
   {n:'设备连通性',t:5},{n:'DNS 解析',t:5},{n:'互联网连通性',t:8},
   {n:'服务鉴权',t:5},{n:'MQTT 上报',t:8},{n:'云端策略同步',t:8},
@@ -658,8 +669,10 @@ function sigBars(n,tone){
   if(tone)cls+=' '+tone;
   return `<span class="${cls}"><i></i><i></i><i></i><i></i></span>`;
 }
-/* bars + 5G/4G tag — used everywhere a link's signal is shown */
+/* bars + 5G/4G tag — used everywhere a link's signal is shown.
+   The wired path has no signal: it carries an ETH tag instead. */
 function sigRat(l){
+  if(l.wired)return `<span class="sigrat"><span class="ethtag">ETH</span></span>`;
   return `<span class="sigrat">${sigBars(l.sig,sigTone(l.sig))}${l.rat?`<span class="rat">${l.rat}</span>`:''}</span>`;
 }
 function battHTML(){
@@ -668,33 +681,60 @@ function battHTML(){
     <span class="batt-fill" style="width:${S.batt}%"></span></span>
     <span>${S.batt}%</span></span>`;
 }
-/* honour Modem A/B exclusivity — at most 3 concurrent paths */
+/* the wired path as a link-shaped object so home/status-bar code stays generic */
+const ethLink=()=>({id:'w',nm:'有线',sl:'有线',op:'以太网',sig:0,rat:'',
+  up:S.eth.up,dn:S.eth.dn,st:'ok',grp:'W',wired:true});
+/* honour Modem A/B exclusivity — at most 4 concurrent paths (v3.0: + wired).
+   v3.3: the two modem links ALWAYS appear on the agg home (req 4); each carries
+   a conn flag (数据连接) — closed links stay on the list but carry no data.
+   USB and wired auto-join when plugged in. */
 function activeLinks(){
   if(S.act!=='online')return [];
   let out=[];
   let a=S.sims[S.linkA], b=S.sims[S.linkB];
-  if(a&&a.st==='ok')out.push(a);
-  if(b&&b.st==='ok')out.push(b);
-  if(S.useUsb){let u=S.sims[4];if(u.st==='ok')out.push(u)}
-  return out.slice(0,3);
+  if(a&&a.st==='ok')out.push(Object.assign({},a,{conn:S.connA}));
+  if(b&&b.st==='ok')out.push(Object.assign({},b,{conn:S.connB}));
+  let u=S.sims[4]; if(u.st==='ok')out.push(u);
+  if(S.eth.plugged)out.push(ethLink());
+  return out.slice(0,4);
+}
+/* every link that actually has a data link — the normal (智能单网) home lists
+   these (v3.0 requirement: all live links, max 4). Modem groups with 数据连接
+   closed are excluded here (no data, nothing to list). */
+function allLinks(){
+  if(S.act!=='online')return [];
+  let out=[];
+  let a=S.sims[S.linkA], b=S.sims[S.linkB];
+  if(a&&a.st==='ok'&&S.connA)out.push(a);
+  if(b&&b.st==='ok'&&S.connB)out.push(b);
+  let u=S.sims[4]; if(u.st==='ok')out.push(u);
+  if(S.eth.plugged)out.push(ethLink());
+  return out.slice(0,4);
 }
 function aggTotals(){
-  let l=activeLinks();
+  let l=activeLinks().filter(x=>x.conn!==false);
   return {up:l.reduce((s,x)=>s+x.up,0), dn:l.reduce((s,x)=>s+x.dn,0), n:l.length};
 }
 function sigTone(n){return n>=4?'':n>=2?'q-mid':''}
-/* single-card mode: which slot + operator is carrying the session, e.g. 内置-中国移动 */
-function curLink(){
-  let d=S.sims[S.defIdx];
-  if(S.act!=='online'||!d||d.st!=='ok')return '--';
-  return d.sl+(d.op?'-'+d.op:'');
-}
+/* link row → link-settings page id (modem group / USB / wired) */
+const linkKey=l=>l.grp;
 
 /* ════════ CHROME ════════ */
 function icoBack(sz=18){return `<svg width="${sz}" height="${sz}" viewBox="0 0 24 24" fill="none"
   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>`}
 function icoHome(sz=17){return `<svg width="${sz}" height="${sz}" viewBox="0 0 24 24" fill="currentColor"><path
   d="M12 3.2 3.4 10.3c-.3.2-.4.5-.4.8v9c0 .5.4.9.9.9h5.8v-6.3h4.6V21h5.8c.5 0 .9-.4.9-.9v-9c0-.3-.1-.6-.4-.8L12 3.2z"/></svg>`}
+function icoLock(sz=17){return `<svg width="${sz}" height="${sz}" viewBox="0 0 24 24" fill="none"
+  stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="5" y="11" width="14" height="9" rx="2"/>
+  <path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>`}
+/* eye toggle for the home Wi-Fi password: open = currently visible, tap hides;
+   slashed = currently masked, tap reveals */
+function icoEye(open){return `<svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+  stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M2 12s3.5-6.5 10-6.5S22 12 22 12s-3.5 6.5-10 6.5S2 12 2 12z"/>
+  <circle cx="12" cy="12" r="2.6"/>${open?'':'<path d="M4 4l16 16"/>'}</svg>`}
+function icoUser(sz=13){return `<svg width="${sz}" height="${sz}" viewBox="0 0 24 24" fill="none"
+  stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="8" r="3.6"/>
+  <path d="M4.8 20a7.2 7.2 0 0 1 14.4 0"/></svg>`}
 
 /* N-mark traced from prototype/nfc.png: two vertical bars plus a diagonal
    with a single mid-height step. Solid fill, not stroke — the reference is a
@@ -704,62 +744,56 @@ function icoNfc(){
     d="M0 0h2.4v24H0zM11.6 0H14v24h-2.4zM0 0h3.3L11 14.1H8.6L14 24h-3.4L3.5 11H6z"/></svg>`;
 }
 function renderStatus(){
-  /* CN operator names are too wide for 3 links in a 24px bar —
-     bars only here; names and path count live on the home screen below */
-  let left='';
-  if(S.act==='online'&&S.agg){
-    left=activeLinks().map(l=>sigRat(l))
-      .join('<span style="width:4px"></span>');
-  }else if(S.act==='online'){
-    let d=S.sims[S.defIdx];
-    left=`${sigRat(d)}
-      <span style="font-family:var(--cn);font-size:9px;color:var(--text-3)">${d.op}</span>`;
-  }else{
-    left=`<span style="color:var(--alert);font-size:10px">无信号</span>`;
-  }
-  /* right cluster answers "is the hotspot live" on every page — the home Wi-Fi
-     strip only says so on the home screen. Wi-Fi icon first, NFC next to the
-     battery; both only while Wi-Fi is on. */
+  /* v3.3: the operator signal cluster is gone from the status bar; the time
+     moves to the left. Signal quality still lives on the home link rows — the
+     24px bar only answers "is it on" via the right side. */
   let wifiIc=S.wifi.on?`<span class="sb-ic">${icoWifi(true,13)}</span>`:'';
   let nfc=S.wifi.on&&S.wifi.nfc?`<span class="sb-ic">${icoNfc()}</span>`:'';
   $('sbar').innerHTML=
-    `<span style="display:flex;align-items:center;gap:4px">${left}</span>
-     <span style="font-weight:600;color:var(--text)">${S.time}</span>
+    `<span style="font-weight:600;color:var(--text)">${S.time}</span>
+     <span></span>
      <span class="sb-r">${wifiIc}${nfc}${battHTML()}</span>`;
 }
 const TITLES={
   menu:'设置',acct:'账号设置',wifi:'Wi-Fi 设置',clients:'接入设备',pwd:'Wi-Fi 密码',
-  sim:'数据卡管理',agglink:'聚合链路设置',
-  aggmode:'聚合模式',pickA:'链路 A',pickB:'链路 B',diag:'网络诊断',
+  agglink:'聚合链路设备',linkset:'链路设置',
+  diag:'网络诊断',
   net:'网络设置',dev:'设备设置',devinfo:'设备信息',sleep:'自动休眠',bright:'屏幕亮度',
   lang:'语言',upg:'系统升级',app:'APP 下载',
 };
+/* chrome-free pages: homes, onboarding, lock */
+const NOCHROME=['home','home-normal','unact','nosim','lock'];
 function renderHeader(){
   let h=$('hdrSlot');
-  if(S.page==='home'||S.page==='home-normal'||S.page==='unact'||S.page==='nosim'){h.innerHTML='';return}
+  if(NOCHROME.includes(S.page)){h.innerHTML='';return}
+  /* the settings grid exits via right-swipe — no nav buttons on it */
+  if(S.page==='menu'){
+    h.innerHTML=`<div class="phead"><div class="ph-t">${TITLES.menu}</div></div>`;return;
+  }
+  /* v3.1: back / home live in the header now. Same two keyboard focus slots
+     (m-2 back, m-1 home), same ids, just moved off the footer */
+  const m=maxFocus(), bk=S.fx===m-2, hm=S.fx===m-1;
   h.innerHTML=`<div class="phead">
+    <span class="hb-btn${bk?' fx':''}" id="fBack">${icoBack(10)} 返回</span>
     <div class="ph-t">${TITLES[S.page]||''}</div>
+    <span class="hb-btn r${hm?' fx':''}" id="fHome">${icoHome(11)} 主页</span>
   </div>`;
 }
 function renderFooter(){
   let f=$('footSlot');
+  if(S.page==='lock'){f.innerHTML='';return}
   if(S.page==='home'||S.page==='home-normal'){
-    /* aggregation home: uptime already sits in the meta strip, so the corner stays empty.
-       single-card home: the strip gave cell 1 to the active link, so traffic moves here. */
+    /* v3.1: settings entry moved to a left-swipe; the meta strip is gone, so
+       BOTH homes carry the pooled traffic readout here */
     const left=Math.max(0,S.data.total-S.data.used);
-    const right=S.agg?''
-      :`聚合流量 已用 <b>${S.data.used.toFixed(1)}</b> GB &nbsp;·&nbsp; 剩余 <b>${left.toFixed(1)}</b> GB`;
-    f.innerHTML=`<div class="dots"><i class="${S.agg?'on':''}"></i><i class="${S.agg?'':'on'}"></i></div>
-      <div class="bbar"><span><b>点击确认键进入</b> 设置</span><span>${right}</span></div>`;
+    f.innerHTML=`<div class="bbar"><span></span><span>聚合流量 已用 <b>${S.data.used.toFixed(1)}</b> GB &nbsp;·&nbsp; 剩余 <b>${left.toFixed(1)}</b> GB</span></div>`;
   }else if(S.page==='unact'||S.page==='nosim'){
-    f.innerHTML=`<div class="bbar"><span><b>OK</b> ${S.page==='unact'?'放大二维码':'进入设置'}</span><span>SN BW20260700001</span></div>`;
+    /* v3.3: no left button — the unactivated QR is always full-size, and the
+       no-network page reaches settings via left-swipe instead */
+    f.innerHTML=`<div class="bbar"><span></span><span>SN BW20260700001</span></div>`;
   }else{
-    /* back & home are real buttons in the footer (v2.8), replacing the
-       long-press. They take the last two focus slots in visual order:
-       back first (m-2), then home (m-1) — so ↓ past the last row lands
-       on back. Back on an empty stack lands home anyway. */
-    const m=maxFocus(), bk=S.fx===m-2, hm=S.fx===m-1;
-    f.innerHTML=`<div class="bbar"><span class="bk-btn${bk?' fx':''}">${icoBack(10)} 返回</span><span class="bk-btn${hm?' fx':''}">${icoHome(11)} 主页</span></div>`;
+    /* subpage nav is in the header — the footer is gone entirely */
+    f.innerHTML='';
   }
 }
 /* ════════ HOME — aggregation (ref layout) ════════ */
@@ -777,28 +811,6 @@ function icoWifi(on,sz=16){
     ?'<path d="M5 12.5a10 10 0 0 1 14 0"/><path d="M8.5 16a5.5 5.5 0 0 1 7 0"/><circle cx="12" cy="19.5" r="1.1" fill="currentColor" stroke="none"/>'
     :'<path d="M8.5 16a5.5 5.5 0 0 1 7 0"/><circle cx="12" cy="19.5" r="1.1" fill="currentColor" stroke="none"/><path d="M3 3l18 18"/>'}</svg>`;
 }
-/* three secondary metrics under the link list. Remaining data is derived from
-   used/total — storing both would let them drift apart. */
-function metaStrip(agg){
-  const left=Math.max(0,S.data.total-S.data.used);
-  const hot=S.temp>=65?'hot':S.temp>=55?'warm':'';
-  /* cell 1 differs by mode: aggregation needs pooled traffic (no single link owns it),
-     single-card needs to name which of the 5 slots is actually carrying the session —
-     its traffic moved to the footer instead. */
-  const c1=agg
-    ? `<div class="mc-v">${S.data.used.toFixed(1)}<span class="sep">/</span
-        ><span class="dim">${left.toFixed(0)}</span><span class="unit">GB</span></div>
-       <div class="mc-l">聚合流量 已用/剩余</div>`
-    : `<div class="mc-v zh">${curLink()}</div>
-       <div class="mc-l">当前链路</div>`;
-  return `<div class="mstrip">
-    <div class="mc">${c1}</div>
-    <div class="mc"><div class="mc-v ${hot}">${S.temp}<span class="unit">°C</span></div>
-      <div class="mc-l">系统温度</div></div>
-    <div class="mc"><div class="mc-v">${hhmmss(S.uptime).slice(0,5)}</div>
-      <div class="mc-l">运行时长</div></div>
-  </div>`;
-}
 function wifiBar(){
   if(!S.wifi.on)return `<div class="wbar off">
     ${icoWifi(false)}
@@ -809,15 +821,30 @@ function wifiBar(){
     ${icoWifi(true)}
     <span class="wb-s">${S.wifi.ssid}</span>
     <span class="wb-c">${S.clients.length} 台设备</span>
-    <span class="wb-p"><em>密码</em><b>${S.wifi.pwd}</b></span>
+    <span class="wb-p"><em>密码</em><b>${S.showPwd?S.wifi.pwd:'********'}</b
+      ><span class="eye" id="pwEye">${icoEye(S.showPwd)}</span></span>
+  </div>`;
+}
+/* card display name — v3.3: built-in cards read 内置-移动 / 内置-电信 */
+const linkLabel=l=>l.tp==='内置'?`内置-${l.nm}`:l.nm;
+/* one link row (both homes). Modem links open the per-link settings page;
+   USB/wired need no config (v3.3 — plug in and they join), so they render
+   without the tap affordance. A modem group with 数据连接 closed shows '--'. */
+function linkRow(l){
+  const cfg=l.grp==='A'||l.grp==='B';
+  const off=l.conn===false;
+  return `<div class="lrow${cfg?' tap':''}${off?' off':''}"${cfg?` data-link="${linkKey(l)}"`:''}>
+    <span class="l-nm">${linkLabel(l)}</span>
+    <span class="l-mid">${sigRat(l)}<span class="l-op">${l.op}</span></span>
+    <span class="l-rt"><span class="l-up">↑${off?'--':l.up.toFixed(1)}</span><span class="l-dn">↓${off?'--':l.dn.toFixed(1)}</span></span>
   </div>`;
 }
 function viewHomeAgg(){
   let t=aggTotals();
   let ls=activeLinks();
   return `
-  <div style="text-align:center;margin-top:3px">
-    <span class="agg-chip"><span class="dot"></span>聚合中 · ${t.n}路</span>
+  <div class="hrow">
+    <span class="agg-chip"><span class="dot"></span>多网聚合 · ${t.n}路</span>
   </div>
   ${arcGauge(Math.min(1,t.up/20))}
   <div class="rates">
@@ -832,24 +859,20 @@ function viewHomeAgg(){
       <div class="r-un">Mbps</div>
     </div>
   </div>
-  <div class="shead"><span class="sh-t">聚合链路</span><span class="sh-c">${t.n} / 3</span></div>
+  <div class="shead"><span class="sh-t">聚合链路 · 点击配置</span><span class="sh-c">${t.n} / 4</span></div>
   <div class="links">
-    ${ls.map(l=>`
-      <div class="lrow">
-        <span class="l-nm">${l.nm}</span>
-        <span class="l-mid">${sigRat(l)}<span class="l-op">${l.op}</span></span>
-        <span class="l-rt"><span class="l-up">↑${l.up.toFixed(1)}</span><span class="l-dn">↓${l.dn.toFixed(1)}</span></span>
-      </div>`).join('')}
+    ${ls.map(linkRow).join('')}
   </div>
-  ${metaStrip(true)}
+  <div class="bigagg on" id="aggBtn"><span class="fill" id="aggFill"></span><span class="lbl">长按关闭聚合</span></div>
   ${wifiBar()}`;
 }
 function viewHomeNormal(){
   let d=S.sims[S.defIdx];
   let ok=S.act==='online'&&d.st==='ok';
+  let ls=allLinks();
   return `
-  <div style="text-align:center;margin-top:3px">
-    <span class="agg-chip mono"><span class="dot"></span>${ok?'单卡模式':'无可用卡'}</span>
+  <div class="hrow">
+    <span class="agg-chip mono"><span class="dot"></span>${ok?'智能单网':'无可用卡'}</span>
   </div>
   ${arcGauge(ok?Math.min(1,d.up/20):0)}
   <div class="rates">
@@ -864,14 +887,70 @@ function viewHomeNormal(){
       <div class="r-un">Mbps</div>
     </div>
   </div>
-  ${metaStrip(false)}
-  <div class="hint-bar">
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-      stroke-width="2" stroke-linecap="round" style="color:var(--warn);flex-shrink:0"><path
-      d="M13 2 4.1 12.6c-.4.5 0 1.4.7 1.4H11l-1 8 8.9-10.6c.4-.5 0-1.4-.7-1.4H12l1-8z"/></svg>
-    <span class="hb-t">按 <b style="color:#fff">聚合键</b> 开启多网聚合</span>
+  <div class="shead"><span class="sh-t">可用链路 · 点击配置</span><span class="sh-c">${ls.length} / 4</span></div>
+  <div class="links">
+    ${ls.map(linkRow).join('')}
   </div>
+  <div class="bigagg" id="aggBtn"><span class="fill" id="aggFill"></span><span class="lbl">长按开启聚合</span></div>
   ${wifiBar()}`;
+}
+/* ════════ LOCK SCREEN (v3.0 — ref: 锁屏.png) ════════ */
+function viewLock(){
+  const on=S.agg&&S.act==='online';
+  const t=on?aggTotals():null;
+  const d=S.sims[S.defIdx];
+  const up=on?t.up:(d&&d.st==='ok'?d.up:0);
+  const dn=on?t.dn:(d&&d.st==='ok'?d.dn:0);
+  return `<div class="lock">
+    <div class="lk-title">${on?`多网聚合 · ${t.n} 路`:'智能单网'}</div>
+    <div class="lk-sub">${on?'AGGREGATED':'NORMAL MODE'}</div>
+    <div class="lk-hex">
+      <svg width="150" height="150" viewBox="0 0 128 128">
+        <path d="M64 8 L112.5 36 L112.5 92 L64 120 L15.5 92 L15.5 36 Z"
+          fill="rgba(10,132,255,.05)" stroke="rgba(10,132,255,.55)" stroke-width="1.6"
+          style="filter:drop-shadow(0 0 10px rgba(10,132,255,.45))"/>
+      </svg>
+      <div class="in">
+        <div class="lk-r up"><span class="n">${up.toFixed(1)}</span><span class="u">Mbps ↑</span></div>
+        <div class="lk-r dn"><span class="n">${dn.toFixed(1)}</span><span class="u">Mbps ↓</span></div>
+      </div>
+    </div>
+    <div class="lk-dev">${icoUser(12)} 已连接 ${S.clients.length} 台设备</div>
+    <div class="lk-hold">
+      <svg width="56" height="56" viewBox="0 0 56 56">
+        <circle cx="28" cy="28" r="22" fill="none" stroke="#23262D" stroke-width="2.5"/>
+        <circle id="lkRing" cx="28" cy="28" r="22" fill="none" stroke="#0A84FF" stroke-width="2.5"
+          stroke-linecap="round" stroke-dasharray="138.2" stroke-dashoffset="138.2"/>
+      </svg>
+      <span class="lk-ic">${icoLock(17)}</span>
+    </div>
+    <div class="lk-hint">长按屏幕解锁</div>
+  </div>`;
+}
+/* ════════ SETTINGS GRID (v3.0 — ref: 设置页.jpg 九宫格) ════════ */
+const ic=p=>`<svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="#fff"
+  stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
+/* order here is the reading order of the grid AND the focus order for the
+   demo keyboard. off: tile greys out while the box has no network. */
+const TILES=[
+  {t:'Wi-Fi',c:'#0A84FF',dst:'wifi',ic:ic('<path d="M5 12.5a10 10 0 0 1 14 0"/><path d="M8.5 16a5.5 5.5 0 0 1 7 0"/><circle cx="12" cy="19.5" r="1.1" fill="#fff" stroke="none"/>')},
+  {t:'接入设备',c:'#30D158',dst:'clients',ic:ic('<rect x="7" y="3" width="10" height="18" rx="2"/><path d="M10.5 18h3"/>')},
+  {t:'聚合链路',c:'#32ADE6',dst:'agglink',off:1,ic:ic('<path d="M9.5 14.5 5.8 18.2a3.7 3.7 0 0 1-5.2-5.2l3.7-3.7M14.5 9.5l3.7-3.7a3.7 3.7 0 0 1 5.2 5.2l-3.7 3.7"/><path d="M8.7 15.3l6.6-6.6"/>')},
+  {t:'网络诊断',c:'#FF9F0A',dst:'diag',off:1,ic:ic('<circle cx="11" cy="11" r="7"/><path d="M16.5 16.5 21 21"/>')},
+  {t:'网络设置',c:'#5E5CE6',dst:'net',ic:ic('<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14.5 14.5 0 0 1 0 18M12 3a14.5 14.5 0 0 0 0 18"/>')},
+  {t:'设备设置',c:'#8E8E93',dst:'dev',ic:ic('<circle cx="12" cy="12" r="3.2"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M18.7 5.3l-2.1 2.1M7.4 16.6l-2.1 2.1"/>')},
+  {t:'账号设置',c:'#BF5AF2',dst:'acct',ic:ic('<circle cx="12" cy="8" r="3.6"/><path d="M4.8 20a7.2 7.2 0 0 1 14.4 0"/>')},
+  {t:'信道优选',c:'#FFD60A',dst:null,ic:ic('<path d="M4 20v-6M9.3 20v-10M14.6 20V7M20 20V3.5"/>')},
+  {t:'APP 下载',c:'#FF6482',dst:'app',ic:ic('<rect x="3.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.5"/><path d="M13.5 13.5h3v3h-3zM17.5 17.5h3v3h-3z"/>')},
+];
+function viewMenu(){
+  return `<div class="g9">${TILES.map((t,i)=>{
+    const dis=t.off&&S.act!=='online';
+    return `<div class="tile${i===S.fx?' fx':''}${dis?' dis':''}" data-tile="${i}">
+      <span class="ti" style="background:${t.c}">${t.ic}</span>
+      <span class="tt">${t.t}</span>
+    </div>`;
+  }).join('')}</div>`;
 }
 /* ════════ onboarding + no-sim ════════ */
 function qrSVG(){
@@ -902,7 +981,7 @@ function viewUnact(){
       <div><b>4</b><span>APP 内完成内置卡实名认证 / 二次认证</span></div>
       <div><b>5</b><span>购买套餐或插入外置卡</span></div>
     </div>
-    
+
   </div>`;
 }
 function viewNoSim(){
@@ -923,7 +1002,8 @@ function viewNoSim(){
 /* ════════ LIST BUILDER ════════ */
 /* row: {t, s, v, sw, rd, chev, dis, disMsg, danger, sect, slider, editing}
    sect rows are non-focusable; slider rows render the brightness slider and
-   are non-focusable too; editing marks a row whose value is being tuned */
+   are non-focusable too; editing marks a row whose value is being tuned.
+   v3.0: every actionable row carries data-fi so taps route through confirm(). */
 function buildList(rows){
   let fi=-1;
   let html=rows.map(r=>{
@@ -936,7 +1016,7 @@ function buildList(rows){
     if(r.sw!==undefined)right=`<span class="sw ${r.sw?'on':''}"><i></i></span>`;
     else if(r.rd!==undefined)right=`<span class="rd ${r.rd?'on':''}"></span>`;
     else right=`<span class="r-v">${r.v?`<span>${r.v}</span>`:''}${r.chev?'<span class="chev">›</span>':''}</span>`;
-    return `<div class="${cls}">
+    return `<div class="${cls}" data-fi="${fi}">
       <span class="r-l"><span class="r-t">${r.t}</span>${r.s?`<span class="r-s">${r.s}</span>`:''}</span>
       ${right}
     </div>`;
@@ -946,27 +1026,6 @@ function buildList(rows){
 const focusable=rows=>rows.filter(r=>!('sect' in r)&&!('slider' in r));
 
 /* ════════ PAGE ROW DEFINITIONS ════════ */
-function rowsMenu(){
-  let off=S.act!=='online';
-  /* 账号设置 sits under 设备设置: both are device-level rather than per-feature
-     network config, and the daily-use network items keep the top of the list.
-     系统升级 moved inside 设备设置 — device upkeep, not network config. Its slot
-     went to 信道优选, which has no page yet: no chevron, so the row does not
-     promise one. */
-  return [
-    {t:'Wi-Fi 设置',chev:1},
-    {t:'数据卡管理',chev:1},
-    /* the old 聚合设置 hub only held two links; the link page replaced it outright
-       (v2.7), and 聚合模式 moved into the link page so the menu stays 9 items */
-    {t:'聚合链路设置',chev:1,dis:off},
-    {t:'网络诊断',chev:1,dis:off},
-    {t:'网络设置',chev:1},
-    {t:'设备设置',chev:1},
-    {t:'账号设置',chev:1},
-    {t:'信道优选'},
-    {t:'APP 下载',chev:1},
-  ];
-}
 const maskPhone=p=>p.slice(0,3)+'****'+p.slice(7);
 /* the request is only live for 10 minutes; after that the row goes back to
    offering a fresh one instead of waiting on an APP reply that can no longer land */
@@ -991,59 +1050,65 @@ function rowsAcct(){
   ];
 }
 function rowsWifi(){
-  return [
-    {t:'Wi-Fi',sw:S.wifi.on},
-    {t:'多频合一',s:'2.4G / 5G 同名合并',sw:S.wifi.band},
-    {t:'Wi-Fi 名称',v:S.wifi.ssid},
-    {t:'Wi-Fi 密码',v:S.wifi.pwd,chev:1},
-    {t:'NFC 分享',s:'碰一碰连接',sw:S.wifi.nfc},
-    {t:'接入设备',v:S.clients.length+' 台',chev:1},
-  ];
-}
-function rowsSim(){
-  /* smart-select owns card choice while it is on: the card rows grey out and
-     drop their radio dots (a stale dot would claim a selection the user did not
-     make). disMsg tells them WHY, because a bare "当前不可用" reads as broken. */
-  const gate=S.smart?{dis:1,disMsg:'智能选网开启中，由系统自动选卡'}:{};
-  const rd=i=>S.smart?undefined:S.defIdx===i;
-  let r=[{t:'智能选网',s:'自动切换最优运营商',sw:S.smart},{sect:'内置 eSIM'}];
-  S.sims.slice(0,2).forEach((s,i)=>r.push({
-    t:s.nm,s:s.st==='ok'?'已实名 · '+s.op:'未实名',
-    v:s.st==='ok'?'':'需认证',
-    rd:rd(i),dis:s.st!=='ok',...gate
-  }));
-  r.push({sect:'外置卡槽'});
-  S.sims.slice(2,4).forEach((s,i)=>r.push({
-    t:s.nm,s:s.st==='empty'?'未插入':s.op,
-    rd:rd(i+2),dis:s.st==='empty',...gate
-  }));
-  r.push({sect:'USB'});
-  r.push({t:'USB Dongle',s:S.sims[4].st==='ok'?'已插入 · '+S.sims[4].op:'未插入',
-    rd:rd(4),dis:S.sims[4].st!=='ok',...gate});
+  /* v3.4: 多频合一 ON = one merged SSID/pwd for both bands; OFF = separate
+     2.4 GHz and 5 GHz settings. The 多频合一 switch always sits directly above
+     NFC 分享. 接入设备 moved off this page — it is a first-level settings tile.
+     v3.5: 5 GHz section above 2.4 GHz; each band has its own on/off switch and
+     an off band hides its 名称/密码 rows; the rows are labelled 名称/密码 uniformly
+     (the band is identified by the section head / row.band on the pwd row). */
+  let r=[{t:'Wi-Fi',sw:S.wifi.on}];
+  if(S.wifi.band){
+    r.push({t:'Wi-Fi 名称',v:S.wifi.ssid});
+    r.push({t:'Wi-Fi 密码',v:S.wifi.pwd,chev:1});
+  }else{
+    r.push({sect:'5 GHz'});
+    r.push({t:'5 GHz Wi-Fi',sw:S.wifi.band5.on});
+    if(S.wifi.band5.on){
+      r.push({t:'Wi-Fi 名称',v:S.wifi.band5.ssid});
+      r.push({t:'Wi-Fi 密码',v:S.wifi.band5.pwd,chev:1,band:'5'});
+    }
+    r.push({sect:'2.4 GHz'});
+    r.push({t:'2.4 GHz Wi-Fi',sw:S.wifi.band24.on});
+    if(S.wifi.band24.on){
+      r.push({t:'Wi-Fi 名称',v:S.wifi.band24.ssid});
+      r.push({t:'Wi-Fi 密码',v:S.wifi.band24.pwd,chev:1,band:'2'});
+    }
+  }
+  r.push({t:'多频合一',s:S.wifi.band?'2.4G / 5G 同名合并':'2.4G / 5G 独立设置',sw:S.wifi.band});
+  r.push({t:'NFC 分享',s:'碰一碰连接',sw:S.wifi.nfc});
   return r;
 }
+/* 聚合链路设备 (v3.0, v3.4): four paths — two modem groups, USB, wired.
+   v3.3: only the modem groups open settings; USB/wired are info rows (they
+   auto-join when plugged in, no config). v3.4: 聚合模式 entry removed —
+   aggregation strategy is fixed / APP-managed, the home big-button remains
+   the only mode switch. */
 function rowsAggLink(){
   return [
-    {t:'链路 A',s:'Modem 1 · 移动 / 外置卡1',v:S.sims[S.linkA].nm,chev:1},
-    {t:'链路 B',s:'Modem 2 · 电信 / 外置卡2',v:S.sims[S.linkB].nm,chev:1},
-    {t:'USB 外扩',s:S.sims[4].st==='ok'?'独立通道':'未插入',sw:S.useUsb,dis:S.sims[4].st!=='ok'},
-    /* 聚合模式 moved in when this page replaced the two-row 聚合设置 hub (v2.7) —
-       it is aggregation config and belongs with the links it shapes */
-    
-    {sect:'约束'},
-    {t:'同组互斥',s:'A组(移动+外置1) 共享 Modem1\nB组(电信+外置2) 共享 Modem2\n同组内同时仅 1 路可用'},
+    {t:'链路 1',s:'Modem 1 · '+linkLabel(S.sims[S.linkA])+(S.connA?'':' · 无数据连接'),v:linkLabel(S.sims[S.linkA]),chev:1},
+    {t:'链路 2',s:'Modem 2 · '+linkLabel(S.sims[S.linkB])+(S.connB?'':' · 无数据连接'),v:linkLabel(S.sims[S.linkB]),chev:1},
+    {t:'USB 外扩',s:S.sims[4].st==='ok'?'已插入 · 插入后即参与使用':'未插入'},
+    {t:'有线网络',s:S.eth.plugged?'RJ45 已连接 · 插入后即参与使用':'未插入网线'},
+    {sect:'A/B 组内同组互斥，同时仅 1 路可用'},
   ];
 }
-function rowsAggMode(){
-  return MODES.map((m,i)=>({t:m.n,s:m.d,rd:S.aggMode===i}));
-}
-function rowsPick(grp){
-  // group A → indices 0,2 | group B → indices 1,3
-  let idx=grp==='A'?[0,2]:[1,3];
-  return idx.map(i=>({
-    t:S.sims[i].nm,s:S.sims[i].st==='empty'?'未插入':S.sims[i].op,
-    rd:(grp==='A'?S.linkA:S.linkB)===i,dis:S.sims[i].st!=='ok'
-  }));
+/* per-link settings (v3.3): only the two modem groups have a sheet. The first
+   switch is 数据连接 (was 参与聚合) — closed means the card has no data link,
+   so it cannot aggregate. The group also picks 内置卡 vs 插拔卡 (A/B exclusivity).
+   USB and wired have no sheet at all: plug in → they participate. */
+function rowsLinkset(){
+  const id=S.linkId;
+  if(id!=='A'&&id!=='B')return [];
+  const inIdx=id==='A'?0:1, exIdx=id==='A'?2:3;
+  const cur=id==='A'?S.linkA:S.linkB;
+  const conn=id==='A'?S.connA:S.connB;
+  const inn=S.sims[inIdx], ext=S.sims[exIdx];
+  return [
+    {t:'数据连接',s:'关闭后该卡无数据连接，无法参与聚合',sw:conn},
+    {sect:'卡槽选择 · 同组仅 1 路可用'},
+    {t:'内置-'+inn.nm,rd:cur===inIdx},
+    {t:'插拔卡',s:ext.st==='empty'?'未插入':ext.op,rd:cur===exIdx,dis:ext.st!=='ok'},
+  ];
 }
 function rowsNet(){
   return [
@@ -1075,45 +1140,83 @@ function rowsDevInfo(){
 }
 /* ════════ SPECIAL VIEWS ════════ */
 function viewWifiPwd(){
+  /* v3.4: the sheet shows whichever Wi-Fi was tapped — merged, 2.4G or 5G */
+  const pw=S.pwdLink==='2'?S.wifi.band24:S.pwdLink==='5'?S.wifi.band5:S.wifi;
   return `<div style="padding:14px 6px;text-align:center">
-    <div style="font-size:10.5px;color:var(--text-3);letter-spacing:.1em">当前密码</div>
+    <div style="font-size:10.5px;color:var(--text-3);letter-spacing:.1em">${S.pwdLink==='2'?'2.4 GHz 密码':S.pwdLink==='5'?'5 GHz 密码':'当前密码'}</div>
     <div style="font-family:var(--num);font-size:24px;font-weight:600;color:#fff;
-      letter-spacing:.06em;margin:11px 0 4px;word-break:break-all">${S.wifi.pwd}</div>
+      letter-spacing:.06em;margin:11px 0 4px;word-break:break-all">${pw.pwd}</div>
     <div style="font-size:11px;color:var(--text-2);margin-top:13px;line-height:1.7">
-      使用手机连接 <b style="color:#fff">${S.wifi.ssid}</b><br>或开启 NFC 分享碰一碰连接</div>
+      使用手机连接 <b style="color:#fff">${pw.ssid}</b><br>或开启 NFC 分享碰一碰连接</div>
     <div style="font-size:10.5px;color:var(--text-3);margin-top:16px;line-height:1.6">
       如需修改名称或密码，请在松果智联 APP 中操作</div>
   </div>`;
 }
 function viewClients(){
-  if(S.clients.length===0)return `<div class="notice">
-    <div class="nt-ic" style="background:rgba(138,143,156,.12)">
-      <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="var(--text-3)"
-        stroke-width="2" stroke-linecap="round"><path d="M5 12.5a10 10 0 0 1 14 0"/>
-        <path d="M8.5 16a5.5 5.5 0 0 1 7 0"/><circle cx="12" cy="19.5" r="1.1" fill="currentColor" stroke="none"/></svg>
-    </div>
-    <div class="nt-t">暂无接入设备</div>
-    <div class="nt-d">连接 ${S.wifi.ssid} 后显示在此</div>
-  </div>`;
-  return `<div class="list">${S.clients.map((c,i)=>`
-    <div class="row${i===S.fx?' fx':''}">
-      <span class="r-l"><span class="r-t">${c.n}</span>
-        <span class="r-s">${c.ip} &nbsp;·&nbsp; ${c.r}</span></span>
-      <span class="dc-btn${i===S.fx?' on':''}">断开</span>
-    </div>`).join('')}
-    <div style="font-size:10px;color:var(--text-3);text-align:center;margin-top:10px">
-      <b style="color:var(--text-2);font-family:var(--num)">OK</b> 断开所选设备</div>
-  </div>`;
+  /* v3.4: two sections on one page — 已连接 (ban / disconnect) and 禁用设备
+     (restore). A banned device is disconnected and can no longer connect. */
+  const b=S.banned||[];
+  let h=`<div class="sect">已连接 ${S.clients.length} 台</div>`;
+  if(S.clients.length===0){
+    h+=`<div style="padding:12px 4px;text-align:center;color:var(--text-3);font-size:11px;line-height:1.7">
+      暂无接入设备<br>连接 ${S.wifi.ssid} 后显示在此</div>`;
+  }else{
+    h+=`<div class="list">${S.clients.map((c,i)=>`
+      <div class="row${i===S.fx?' fx':''}" data-fi="${i}">
+        <span class="r-l"><span class="r-t">${c.n}</span>
+          <span class="r-s">${c.mac} &nbsp;·&nbsp; ${c.r}</span></span>
+        <span class="dc-btn${i===S.fx?' on':''}" data-act="dc">断开</span>
+        <span class="cl-btn ban${i===S.fx?' on':''}" data-act="ban">禁用</span>
+      </div>`).join('')}
+      <div style="font-size:10px;color:var(--text-3);text-align:center;margin-top:10px">
+        点击行可断开连接 · 禁用后设备无法再连接本机</div>
+    </div>`;
+  }
+  h+=`<div class="sect">禁用设备 · ${b.length}</div>`;
+  if(b.length===0){
+    h+=`<div style="padding:12px 4px;text-align:center;color:var(--text-3);font-size:11px">
+      被禁用的设备将无法连接本设备</div>`;
+  }else{
+    h+=`<div class="list">${b.map((d,i)=>`
+      <div class="row" data-ban="${i}">
+        <span class="r-l"><span class="r-t">${d.n}</span>
+          <span class="r-s">已禁用 · ${d.mac}</span></span>
+        <span class="cl-btn unban" data-act="unban">恢复</span>
+      </div>`).join('')}</div>`;
+  }
+  return h;
 }
-/* brightness became a plain list page in v2.8: OK on the value row enters an
-   adjust mode (↑↓ tunes ±10%, OK exits) instead of ↑↓ always tuning — that's
-   what frees ↑↓ to reach the auto-brightness row and the footer back button.
-   The slider stays, rendered as a non-focusable row. */
+/* v3.4: client actions. 断开 = temporary; 禁用 = disconnect AND block — the
+   device moves into 禁用设备 where it can be restored. */
+function clampFx(){if(S.fx>=S.clients.length)S.fx=Math.max(0,S.clients.length-1)}
+function disconnectClient(i){
+  const c=S.clients[i];if(!c)return;
+  openModal('断开设备',`将断开「${c.n}」的 Wi-Fi 连接。`,()=>{
+    S.clients.splice(i,1);
+    clampFx();
+    toast('已断开 '+c.n,'ok');
+  });
+}
+function banClient(i){
+  const c=S.clients[i];if(!c)return;
+  openModal('禁用设备',`将断开并禁止「${c.n}」连接本设备。可在禁用清单中恢复。`,()=>{
+    S.clients.splice(i,1);
+    S.banned=S.banned||[];
+    S.banned.push({n:c.n, mac:c.mac});
+    clampFx();
+    toast('已禁用 '+c.n,'ok');
+  });
+}
+function unbanClient(i){
+  const d=(S.banned||[])[i];if(!d)return;
+  S.banned.splice(i,1);
+  toast('已恢复 '+d.n+' 的连接权限','ok');
+}
 function rowsBright(){
   return [
     {slider:S.bright,dim:S.autoBright},
     {t:'屏幕亮度',v:S.bright+'%',
-      ...(S.brightEdit?{s:'↑↓ 调节 · OK 完成',editing:1}:{}),
+      ...(S.brightEdit?{s:'拖动滑杆或 ↑↓ 调节 · 再次点击完成',editing:1}:{}),
       dis:S.autoBright,disMsg:'自动亮度开启中，由系统自动调节'},
     {t:'自动亮度',s:'按环境光自动调节',sw:S.autoBright},
   ];
@@ -1128,7 +1231,7 @@ function viewDiag(){
     <div class="nt-t">网络诊断</div>
     <div class="nt-d">逐项检测 6 个网络环节<br>约需 10 秒</div>
   </div>
-  <div class="list"><div class="row${S.fx===0?' fx':''}">
+  <div class="list"><div class="row${S.fx===0?' fx':''}" data-fi="0">
     <span class="r-l"><span class="r-t">开始检测</span></span>
     <span class="r-v"><span class="chev">›</span></span></div></div>`;
   let done=d.results.filter(r=>r).length===DIAG.length;
@@ -1146,7 +1249,7 @@ function viewDiag(){
     ${done?`<div style="text-align:center;margin-top:14px;font-size:12px;
       color:${passed===DIAG.length?'var(--up)':'var(--warn)'}">
       ${passed===DIAG.length?'全部 6 项通过 ✓':`${passed}/6 项通过`}</div>
-    <div class="list" style="margin-top:10px"><div class="row${S.fx===0?' fx':''}">
+    <div class="list" style="margin-top:10px"><div class="row${S.fx===0?' fx':''}" data-fi="0">
       <span class="r-l"><span class="r-t">重新检测</span></span>
       <span class="r-v"><span class="chev">›</span></span></div></div>`:''}
   </div>`;
@@ -1159,7 +1262,7 @@ function viewUpg(){
         <span class="r-s">2026-07-15 发布</span></span><span class="r-v">v2.1.3</span></div>
       <div class="row"><span class="r-l"><span class="r-t">设备 ID</span></span>
         <span class="r-v">BW-LIVE-001</span></div>
-      <div class="row${S.fx===0?' fx':''}"><span class="r-l"><span class="r-t">检查更新</span></span>
+      <div class="row${S.fx===0?' fx':''}" data-fi="0"><span class="r-l"><span class="r-t">检查更新</span></span>
         <span class="r-v"><span class="chev">›</span></span></div>
     </div></div>`;
   if(u.stage==='check')return `<div class="notice">
@@ -1170,7 +1273,7 @@ function viewUpg(){
     <div style="font-size:10.5px;color:var(--text-3);font-family:var(--num);margin-top:2px">32.6 MB</div>
     <div style="margin-top:14px;font-size:11.5px;color:var(--text-2);line-height:1.85">
       · 优化聚合算法延迟<br>· 修复 Wi-Fi 断连问题<br>· 提升弱网推流稳定性</div>
-    <div class="list" style="margin-top:16px"><div class="row${S.fx===0?' fx':''}">
+    <div class="list" style="margin-top:16px"><div class="row${S.fx===0?' fx':''}" data-fi="0">
       <span class="r-l"><span class="r-t">开始升级</span></span>
       <span class="r-v"><span class="chev">›</span></span></div></div>
     ${S.batt<=20?`<div class="hint-bar" style="margin:14px 0 0"><span class="hb-t">电量低于 20%，请先充电</span></div>`:''}
@@ -1201,22 +1304,24 @@ function viewApp(){
 }
 /* ════════ ROUTE TABLE ════════ */
 const ROWS={
-  menu:rowsMenu, acct:rowsAcct, wifi:rowsWifi, sim:rowsSim, agglink:rowsAggLink,
-  aggmode:rowsAggMode, net:rowsNet, dev:rowsDev, devinfo:rowsDevInfo,
+  acct:rowsAcct, wifi:rowsWifi, agglink:rowsAggLink, linkset:rowsLinkset,
+  net:rowsNet, dev:rowsDev, devinfo:rowsDevInfo,
   bright:rowsBright,
-  pickA:()=>rowsPick('A'), pickB:()=>rowsPick('B'),
   sleep:()=>SLEEP.map((s,i)=>({t:s,rd:S.sleepIdx===i})),
   lang:()=>['中文','English'].map((s,i)=>({t:s,rd:S.lang===i})),
 };
 const VIEWS={
   home:viewHomeAgg, 'home-normal':viewHomeNormal, unact:viewUnact, nosim:viewNoSim,
+  lock:viewLock, menu:viewMenu,
   pwd:viewWifiPwd, clients:viewClients,
   diag:viewDiag, upg:viewUpg, app:viewApp,
 };
 function maxFocus(){
-  /* +2 on every subpage: footer back button (slot m-2) and home button (m-1),
-     in visual order — ↓ past the last row reaches back first */
+  /* +2 on every subpage: header back button (slot m-2) and home button (m-1),
+     in visual order — ↓ past the last row reaches back first.
+     The settings grid has NO nav slots (it exits via right-swipe) */
   if(ROWS[S.page])return focusable(ROWS[S.page]()).length+2;
+  if(S.page==='menu')return TILES.length;
   if(S.page==='clients')return S.clients.length+2;
   /* diag / upg expose one action row (start / re-run / upgrade) only when the
      stage has something to trigger; the last two slots are back / home */
@@ -1230,9 +1335,9 @@ function renderBody(){
   if(ROWS[S.page]) b.innerHTML=buildList(ROWS[S.page]());
   else if(VIEWS[S.page]) b.innerHTML=VIEWS[S.page]();
   else b.innerHTML='';
-  // both home variants must fit without scrolling
+  // homes and the lock screen must fit without scrolling
   let isHome=S.page==='home'||S.page==='home-normal';
-  b.classList.toggle('nohome',isHome);
+  b.classList.toggle('nohome',isHome||S.page==='lock');
   // keep focused row in view
   let f=b.querySelector('.row.fx');
   if(f)f.scrollIntoView({block:'nearest'});
@@ -1259,15 +1364,14 @@ function render(){
 const ST_LABEL={unactivated:'UNACTIVATED','no-sim':'NO SIM',online:'ONLINE'};
 function syncRail(){
   let on=S.act==='online'&&S.agg;
-  let m=$('tMode'); m.textContent=on?'AGGREGATED':'SINGLE';
+  let m=$('tMode'); m.textContent=on?'AGGREGATED':'NORMAL';
   m.className='tv '+(on?'on':'off');
   let st=$('tState'); st.textContent=ST_LABEL[S.act];
   st.className='tv '+(S.act==='online'?'on':S.act==='no-sim'?'warn':'off');
   $('tPage').textContent=(S.page||'—').toUpperCase();
-  if(S.act!=='online'){$('tUp').textContent='—';$('tPath').textContent='0 / 3'}
-  else if(on){let t=aggTotals();$('tUp').textContent=t.up.toFixed(1)+' Mbps';$('tPath').textContent=t.n+' / 3'}
-  else{let d=S.sims[S.defIdx];$('tUp').textContent=(d.st==='ok'?d.up.toFixed(1):'—')+' Mbps';$('tPath').textContent='1 / 3'}
-  $('bAggr').classList.toggle('live',on);
+  if(S.act!=='online'){$('tUp').textContent='—';$('tPath').textContent='0 / 4'}
+  else if(on){let t=aggTotals();$('tUp').textContent=t.up.toFixed(1)+' Mbps';$('tPath').textContent=t.n+' / 4'}
+  else{let d=S.sims[S.defIdx];$('tUp').textContent=(d.st==='ok'?d.up.toFixed(1):'—')+' Mbps';$('tPath').textContent='1 / 4'}
 }
 
 /* ════════ NAV ════════ */
@@ -1283,19 +1387,55 @@ function home(){
   S.page=S.act==='unactivated'?'unact':S.act==='no-sim'?'nosim':(S.agg?'home':'home-normal');
   render();resetIdle();
 }
+/* per-link settings page — entered by tapping a link row on either home,
+   or a link row on the 聚合链路设备 page */
+function openLinkset(id){S.linkId=id;go('linkset')}
 function toast(msg,kind){
   let t=$('toast');
   t.textContent=msg;t.className='toast show'+(kind?' '+kind:'');
   clearTimeout(S.timers.toast);
   S.timers.toast=setTimeout(()=>t.className='toast',2000);
 }
+/* idle: 30s on a subpage returns home; another 30s on a home locks the screen
+   (the physical device follows 自动休眠 for the lock timing — the prototype
+   uses a short fixed delay so the lock screen is actually seen) */
 function resetIdle(){
   clearTimeout(S.timers.idle);
   S.timers.idle=setTimeout(()=>{
-    if(S.page!=='home'&&S.page!=='home-normal'&&S.page!=='unact'&&S.page!=='nosim'){
-      home();toast('已返回主屏');
-    }
+    if(S.page==='lock')return;
+    if(S.page==='home'||S.page==='home-normal'){lock();return}
+    if(S.page!=='unact'&&S.page!=='nosim'){home();toast('已返回主屏')}
   },30000);
+}
+/* ════════ LOCK ════════ */
+function lock(){
+  if(S.act!=='online')return;
+  if(S.modal)closeModal();
+  S.stack=[];S.fx=0;S.brightEdit=false;
+  S.page='lock';render();
+}
+function unlock(){
+  cancelHold();
+  home();
+  toast('已解锁','ok');
+}
+/* hold-to-unlock: 1s press anywhere on the lock screen. The ring around the
+   lock icon animates the hold window so the gesture is discoverable. */
+function startHold(){
+  if(S.page!=='lock'||S.timers.hold)return;
+  const r=$('lkRing');
+  if(r&&r.style){
+    r.style.transition='none';r.style.strokeDashoffset='138.2';
+    void r.offsetWidth;
+    r.style.transition='stroke-dashoffset 1s linear';r.style.strokeDashoffset='0';
+  }
+  S.timers.hold=setTimeout(()=>{S.timers.hold=null;unlock()},1000);
+}
+function cancelHold(){
+  if(!S.timers.hold)return;
+  clearTimeout(S.timers.hold);S.timers.hold=null;
+  const r=$('lkRing');
+  if(r&&r.style){r.style.transition='stroke-dashoffset .18s';r.style.strokeDashoffset='138.2'}
 }
 /* ════════ MODAL ════════ */
 function openModal(title,desc,onYes,safe){
@@ -1309,27 +1449,31 @@ function closeModal(){S.modal=null;$('modal').classList.remove('show')}
 function confirm(){
   if(S.modal){let f=S.modal.onYes;closeModal();if(f)f();return}
   let p=S.page,f=S.fx;
+  if(p==='lock')return;   // the lock screen only listens to the long press
   // home screens
   if(p==='home'||p==='home-normal'){go('menu');return}
-  if(p==='unact'){toast('二维码已放大');return}
+  /* v3.3: unact has no action (the 放大二维码 button is gone); nosim still
+     enters settings on Enter, mirroring the left-swipe on a touch screen */
   if(p==='nosim'){go('menu');return}
   // guarded rows
   let rows=ROWS[p]?focusable(ROWS[p]()):null;
   if(rows&&rows[f]&&rows[f].dis){toast(rows[f].disMsg||'当前不可用');return}
-  /* the footer buttons sit at the last two focus slots of every subpage,
-     in visual order — back first (m-2), home last (m-1). Intercept globally
-     so no case below ever sees those indexes */
+  /* the header buttons sit at the last two focus slots of every subpage,
+     in visual order — back first (m-2), home last (m-1). The settings grid
+     has no nav slots, so it skips this interception entirely */
   const mf=maxFocus();
-  if(mf&&f===mf-2){back();return}
-  if(mf&&f===mf-1){home();return}
+  if(p!=='menu'&&mf&&f===mf-2){back();return}
+  if(p!=='menu'&&mf&&f===mf-1){home();return}
 
   switch(p){
     case 'menu':{
-      /* must stay in the same order as rowsMenu(). 信道优选 has no page yet, so
-         its slot is null and the row just toasts instead of routing nowhere. */
-      const dst=['wifi','sim','agglink','diag','net','dev','acct',null,'app'];
-      if(!dst[f]){toast('功能开发中');break}
-      go(dst[f]);break;
+      /* grid tiles — TILES order is both the visual and the focus order.
+         信道优选 has no page yet (dst:null), so the tile just toasts. */
+      const t=TILES[f];
+      if(!t)break;
+      if(t.off&&S.act!=='online'){toast('设备暂无可用网络','err');break}
+      if(!t.dst){toast('功能开发中');break}
+      go(t.dst);break;
     }
     case 'acct':{
       // rows 0/1 are read-only; only the unbind row acts
@@ -1344,42 +1488,50 @@ function confirm(){
       break;
     }
     case 'wifi':{
-      if(f===0){S.wifi.on=!S.wifi.on;toast('Wi-Fi 已'+(S.wifi.on?'开启':'关闭'),S.wifi.on?'ok':'')}
-      else if(f===1){S.wifi.band=!S.wifi.band;toast('多频合一 '+(S.wifi.band?'ON':'OFF'))}
-      else if(f===2)toast('请在松果智联 APP 中修改');
-      else if(f===3)go('pwd');
-      else if(f===4){S.wifi.nfc=!S.wifi.nfc;toast('NFC 分享 '+(S.wifi.nfc?'ON':'OFF'))}
-      else if(f===5)go('clients');
-      break;
-    }
-    case 'sim':{
-      if(f===0){S.smart=!S.smart;toast('智能选网 '+(S.smart?'ON':'OFF'),S.smart?'ok':'')}
-      else{
-        /* dis rows (unavailable card, or every card while smart-select is on) are
-           already stopped by the guarded-row check above, which toasts disMsg */
-        const map=[null,0,1,2,3,4];
-        let i=map[f];
-        if(i!==null&&i!==undefined){
-          S.defIdx=i;toast('默认卡 → '+S.sims[i].nm,'ok');
-        }
+      /* v3.4: indexes are band-dependent — resolve by row identity instead of
+         a fixed offset. v3.5: band rows now each carry their own switch, and the
+         name/pwd rows are labelled uniformly, so the sheet band is row.band. */
+      const wf=focusable(rowsWifi());
+      const row=wf[f];
+      if(!row)break;
+      if(row.t==='Wi-Fi'){S.wifi.on=!S.wifi.on;toast('Wi-Fi 已'+(S.wifi.on?'开启':'关闭'),S.wifi.on?'ok':'');break}
+      if(row.t==='5 GHz Wi-Fi'){S.wifi.band5.on=!S.wifi.band5.on;toast('5G Wi-Fi 已'+(S.wifi.band5.on?'开启':'关闭'),S.wifi.band5.on?'ok':'');break}
+      if(row.t==='2.4 GHz Wi-Fi'){S.wifi.band24.on=!S.wifi.band24.on;toast('2.4G Wi-Fi 已'+(S.wifi.band24.on?'开启':'关闭'),S.wifi.band24.on?'ok':'');break}
+      if(row.t==='多频合一'){S.wifi.band=!S.wifi.band;toast('多频合一 '+(S.wifi.band?'ON':'OFF'));break}
+      if(row.t==='NFC 分享'){S.wifi.nfc=!S.wifi.nfc;toast('NFC 分享 '+(S.wifi.nfc?'ON':'OFF'));break}
+      if(row.chev){   /* a password row — open the sheet for that band */
+        S.pwdLink=row.band||'u';
+        go('pwd');break;
       }
-      break;
+      toast('请在松果智联 APP 中修改');break;
     }
     case 'agglink':{
-      if(f===0)go('pickA');
-      else if(f===1)go('pickB');
-      else if(f===2){
-        if(S.sims[4].st!=='ok'){toast('USB 未插入');break}
-        S.useUsb=!S.useUsb;toast('USB 外扩 '+(S.useUsb?'已加入':'已移除'));
-      }
-      else if(f===3)go('aggmode');
+      if(f===0)openLinkset('A');
+      else if(f===1)openLinkset('B');
+      /* v3.3: USB/wired need no config — tapping explains the rule instead */
+      else if(f===2)toast('USB 插入后即参与使用，无需配置');
+      else if(f===3)toast('有线插入后即参与使用，无需配置');
       break;
     }
-    case 'pickA':{let i=[0,2][f];if(S.sims[i].st!=='ok'){toast('该卡不可用');break}
-      S.linkA=i;toast('链路 A → '+S.sims[i].nm,'ok');back();break}
-    case 'pickB':{let i=[1,3][f];if(S.sims[i].st!=='ok'){toast('该卡不可用');break}
-      S.linkB=i;toast('链路 B → '+S.sims[i].nm,'ok');back();break}
-    case 'aggmode':{S.aggMode=f;toast('模式 → '+MODES[f].n,'ok');back();break}
+    case 'linkset':{
+      const id=S.linkId;
+      if(id!=='A'&&id!=='B')break;   // USB/wired have no sheet (v3.3)
+      const inIdx=id==='A'?0:1, exIdx=id==='A'?2:3;
+      const nm=id==='A'?'链路 1':'链路 2';
+      if(f===0){
+        if(id==='A')S.connA=!S.connA;else S.connB=!S.connB;
+        const on=id==='A'?S.connA:S.connB;
+        toast(nm+' 数据连接 '+(on?'已开启':'已关闭'),on?'ok':'');
+      }else if(f===1){
+        if(id==='A')S.linkA=inIdx;else S.linkB=inIdx;
+        toast(nm+' → 内置-'+S.sims[inIdx].nm,'ok');
+      }else if(f===2){
+        /* an empty 插拔卡 row is dis — the guarded-row check already toasted */
+        if(id==='A')S.linkA=exIdx;else S.linkB=exIdx;
+        toast(nm+' → '+S.sims[exIdx].nm,'ok');
+      }
+      break;
+    }
     case 'diag': runDiag(); break;
     case 'net':{
       if(f===0){S.rj45=S.rj45?0:1;toast('RJ45 → '+(S.rj45?'WAN':'LAN'),'ok')}
@@ -1414,13 +1566,10 @@ function confirm(){
       break;
     }
     case 'clients':{
+      /* whole-row tap = disconnect; the 禁用/断开 buttons route separately in
+         the click delegate (data-act), 恢复 for banned rows */
       if(S.clients.length===0)break;
-      let c=S.clients[f];
-      openModal('断开设备',`将断开「${c.n}」的 Wi-Fi 连接。`,()=>{
-        S.clients.splice(f,1);
-        if(S.fx>=S.clients.length)S.fx=Math.max(0,S.clients.length-1);
-        toast('已断开 '+c.n,'ok');
-      });
+      disconnectClient(S.fx);
       break;
     }
     case 'pwd': case 'app': break;   // only footer slots — intercepted above
@@ -1428,14 +1577,37 @@ function confirm(){
   render();resetIdle();
 }
 
-/* ════════ AGGREGATION KEY ════════ */
+/* ════════ AGGREGATION TOGGLE (v3.0 — on-screen button, was the physical key) ════════ */
+/* v3.2: the big bar is hold-to-toggle with a fill sweep as progress; v3.3 drops
+   the hold window 2s → 1s. The fill is JS-driven (timestamp + 50ms tick,
+   re-querying the node each tick) because jitter() re-renders every 1.4s and
+   would reset a CSS transition mid-hold. */
+function startAggHold(){
+  if(S.timers.agg)return;
+  const t0=Date.now();
+  S.timers.aggTick=setInterval(()=>{
+    const f=$('aggFill');
+    if(f&&f.style)f.style.width=Math.min(100,(Date.now()-t0)/1000*100)+'%';
+  },50);
+  S.timers.agg=setTimeout(()=>{
+    clearInterval(S.timers.aggTick);S.timers.agg=null;S.timers.aggTick=null;
+    toggleAgg();
+  },1000);
+}
+function cancelAggHold(hint){
+  if(!S.timers.agg)return;
+  clearTimeout(S.timers.agg);clearInterval(S.timers.aggTick);
+  S.timers.agg=null;S.timers.aggTick=null;
+  const f=$('aggFill');if(f&&f.style)f.style.width='0';
+  if(hint)toast('长按 1 秒'+(S.agg?'关闭':'开启')+'聚合');
+}
 function toggleAgg(){
   if(S.act!=='online'){toast('设备暂无可用网络','err');return}
   S.agg=!S.agg;
   toast(S.agg?'正在开启聚合…':'正在关闭聚合…');
   setTimeout(()=>{
     home();
-    toast(S.agg?`聚合已开启 · ${aggTotals().n}路`:'已切换单卡模式',S.agg?'ok':'');
+    toast(S.agg?`聚合已开启 · ${aggTotals().n}路`:'已切换智能单网',S.agg?'ok':'');
   },700);
 }
 
@@ -1472,13 +1644,80 @@ function stepUpg(){
     },260);
   }
 }
-/* ════════ BUTTON FEEDBACK ════════ */
-function flash(id,ms=130){let e=$(id);if(!e)return;e.classList.add('hit');
-  setTimeout(()=>e.classList.remove('hit'),ms)}
 
-/* ════════ INPUT ════════ */
+/* ════════ TOUCH INPUT (v3.0 primary; v3.1 swipe nav; v3.2 pointer capture
+   + hold-2s aggregation bar) ════════ */
+/* one delegated tap handler: rows, grid tiles, home link rows, header buttons,
+   and the modal all route through the same confirm() path the demo keyboard
+   uses — one source of truth for what a "press" does. The aggregation bar is
+   deliberately NOT here: it is hold-2s-to-toggle, wired in pointerdown. */
+$('scr').addEventListener('click',e=>{
+  if(S.page==='lock')return;            // long-press only, handled below
+  resetIdle();
+  if(swiped){swiped=false;return}       // a swipe that ends on a row is not a tap
+  /* v3.2 fix: pointer capture (for off-screen swipes) retargets the trailing
+     click to #scr — pointerup lands on the capture element, so the click's
+     common-ancestor is #scr too. Recover the real target by coordinates. */
+  let tgt=e.target;
+  if(tgt===$('scr'))tgt=document.elementFromPoint(e.clientX,e.clientY)||tgt;
+  if(tgt.closest('#mNo')){closeModal();return}
+  if(tgt.closest('#mYes')){confirm();return}
+  if(S.modal)return;
+  const pe=tgt.closest('#pwEye');
+  if(pe){S.showPwd=!S.showPwd;render();return}
+  /* #aggBtn has NO click branch on purpose (v3.2): it is hold-to-toggle,
+     wired in pointerdown below — a tap must not flip aggregation. */
+  const bk=tgt.closest('#fBack');
+  if(bk){back();return}
+  const hm=tgt.closest('#fHome');
+  if(hm){home();return}
+  const lk=tgt.closest('[data-link]');
+  if(lk){openLinkset(lk.dataset.link);return}
+  const tl=tgt.closest('[data-tile]');
+  if(tl){S.fx=+tl.dataset.tile;confirm();return}
+  /* v3.4: 接入设备 row actions — the pill buttons sit inside a data-fi row, so
+     they must route before the row-tap check (禁用 / 断开 / 恢复) */
+  const act=tgt.closest('[data-act]');
+  if(act&&S.page==='clients'){
+    const a=act.dataset.act;
+    const row=act.closest('[data-fi]');
+    if(a==='ban'&&row){S.fx=+row.dataset.fi;banClient(S.fx)}
+    else if(a==='dc'&&row){S.fx=+row.dataset.fi;disconnectClient(S.fx)}
+    else if(a==='unban'){const rb=act.closest('[data-ban]');if(rb)unbanClient(+rb.dataset.ban)}
+    return;
+  }
+  const rw=tgt.closest('[data-fi]');
+  if(rw){S.fx=+rw.dataset.fi;confirm();return}
+});
+/* hold-to-unlock on the lock screen (touch + mouse) + swipe tracking */
+let tX=0,tY=0,swiped=false;
+$('scr').addEventListener('pointerdown',e=>{
+  if(S.page==='lock'){e.preventDefault();startHold();return}
+  tX=e.clientX;tY=e.clientY;
+  /* capture the pointer so pointerup still reaches us when the finger is
+     released outside the 320×480 frame — without this a swipe leaving the
+     screen edge never fires our handler (right-swipe home was lost) */
+  try{$('scr').setPointerCapture(e.pointerId)}catch(_){}
+  const ab=e.target.closest('#aggBtn');
+  if(ab&&(S.page==='home'||S.page==='home-normal'))startAggHold();
+});
+/* swipe navigation: left on a home opens settings, right on settings goes home */
+$('scr').addEventListener('pointerup',e=>{
+  if(S.page==='lock')return;
+  const dx=e.clientX-tX,dy=e.clientY-tY;
+  if(Math.abs(dx)<48||Math.abs(dx)<Math.abs(dy)*1.4)return;
+  swiped=true;
+  /* v3.3: the no-network page also enters settings by left-swipe (its footer
+     settings button is gone) */
+  if((S.page==='home'||S.page==='home-normal'||S.page==='nosim')&&dx<0)go('menu');
+  else if(S.page==='menu'&&dx>0)home();
+});
+['pointerup','pointercancel','pointerleave'].forEach(ev=>
+  $('scr').addEventListener(ev,()=>{cancelHold();cancelAggHold(!swiped)}));
+
+/* ════════ KEYBOARD (demo aid only — the device is touch) ════════ */
 function moveFocus(d){
-  // brightness adjust mode: OK on the value row enters it, ↑↓ tunes, OK exits
+  // brightness adjust mode: tap the value row enters it, ↑↓ tunes, tap exits
   if(S.page==='bright'&&S.brightEdit){
     S.bright=Math.max(10,Math.min(100,S.bright+d*10));
     render();return;
@@ -1492,34 +1731,54 @@ function moveFocus(d){
   let m=maxFocus();
   if(!m)return;
   let n=S.fx+d;
-  if(n<0)n=m-2;        // ↑ past the first row lands on ‹ 返回, not 主页 — both directions reach back first
+  if(S.page==='menu')n=(n+m)%m;   // 3×3 grid: pure wrap, there are no nav slots
+  else if(n<0)n=m-2;        // ↑ past the first row lands on ‹ 返回, not 主页 — both directions reach back first
   else if(n>=m)n=0;    // ↓ past 主页 wraps to the first row
   S.fx=n;
   render();
 }
 document.addEventListener('keydown',e=>{
   resetIdle();
+  /* lock screen: held Enter = the long press */
+  if(S.page==='lock'){
+    if(e.key==='Enter'&&!e.repeat){e.preventDefault();startHold()}
+    else if(e.key==='1'){cycAct()}
+    return;
+  }
   if(e.key==='Enter'){
     e.preventDefault();
     /* ignore OS key-repeat: a held key would otherwise re-fire confirm and
-       flapping toggles (v2.8: back is the footer button, no long-press left) */
+       flapping toggles */
     if(e.repeat)return;
-    flash('bOk');
     confirm();
     return;
   }
-  if(e.key==='ArrowUp'){e.preventDefault();flash('bUp');moveFocus(-1);return}
-  if(e.key==='ArrowDown'){e.preventDefault();flash('bDn');moveFocus(1);return}
-  if(e.key===' '){e.preventDefault();flash('bAggr',180);toggleAgg();return}
-  if(e.key==='1'){
+  if(e.key==='ArrowUp'){e.preventDefault();moveFocus(S.page==='menu'?-3:-1);return}
+  if(e.key==='ArrowDown'){e.preventDefault();moveFocus(S.page==='menu'?3:1);return}
+  if(e.key==='ArrowLeft'&&S.page==='menu'){e.preventDefault();moveFocus(-1);return}
+  if(e.key==='ArrowRight'&&S.page==='menu'){e.preventDefault();moveFocus(1);return}
+  if(e.key===' '){e.preventDefault();toggleAgg();return}
+  if(e.key==='Escape'){e.preventDefault();back();return}   // settings grid has no back button; Esc demos the right-swipe
+  if(e.key==='1'){e.preventDefault();cycAct();return}
+  if(e.key==='2'){
     e.preventDefault();
-    const cyc=['unactivated','no-sim','online'];
-    S.act=cyc[(cyc.indexOf(S.act)+1)%3];
-    if(S.act==='online')S.agg=true;
-    home();
-    toast('演示状态 · '+({unactivated:'未激活','no-sim':'无可用 SIM',online:'已激活在线'})[S.act]);
+    S.eth.plugged=!S.eth.plugged;
+    render();
+    toast(S.eth.plugged?'网线已插入 · 有线网络可用':'网线已拔出');
+    return;
   }
+  if(e.key==='l'||e.key==='L'){e.preventDefault();lock();return}
 });
+document.addEventListener('keyup',e=>{
+  if(e.key==='Enter'&&S.page==='lock')cancelHold();
+});
+function cycAct(){
+  const cyc=['unactivated','no-sim','online'];
+  S.act=cyc[(cyc.indexOf(S.act)+1)%3];
+  if(S.act==='online')S.agg=true;
+  home();
+  toast('演示状态 · '+({unactivated:'未激活','no-sim':'无可用 SIM',online:'已激活在线'})[S.act]);
+}
 
 /* ════════ LIVE DATA ════════ */
 function jitter(){
@@ -1529,6 +1788,10 @@ function jitter(){
       s.up=Math.max(.4,+(s.up+(Math.random()-.5)*.9).toFixed(1));
       s.dn=Math.max(.3,+(s.dn+(Math.random()-.5)*.7).toFixed(1));
     });
+    if(S.eth.plugged){
+      S.eth.up=Math.max(1,+(S.eth.up+(Math.random()-.5)*.8).toFixed(1));
+      S.eth.dn=Math.max(1,+(S.eth.dn+(Math.random()-.5)*.6).toFixed(1));
+    }
     // consumed traffic tracks the paths actually carrying data
     let t=S.agg?aggTotals():{up:S.sims[S.defIdx].up,dn:S.sims[S.defIdx].dn};
     S.data.used=Math.min(S.data.total,
@@ -1544,8 +1807,8 @@ function jitter(){
 /* ════════ INIT ════════ */
 home();
 S.timers.tick=setInterval(jitter,1400);
-console.log('%cBeWinner 屏幕原型 v2','color:#0A84FF;font-weight:600');
-console.log('↑↓ 导航 / Enter 确认 / 底部栏‹返回 / Space 聚合键 / 1 切换状态');
+console.log('%cBeWinner 屏幕原型 v3（触控）','color:#0A84FF;font-weight:600');
+console.log('点击操作 / 锁屏长按解锁 / Space 聚合开关 / 1 状态 / 2 网线 / L 锁屏');
 </script>
 </body>
 </html>

@@ -428,6 +428,9 @@ body::before{
 .dc-btn.on{color:var(--alert);border-color:rgba(255,69,58,.5);background:rgba(255,69,58,.12)}
 .cl-btn.ban.on{color:var(--warn);border-color:rgba(255,159,10,.5);background:rgba(255,159,10,.12)}
 .cl-btn.unban{color:var(--blue);border-color:rgba(10,132,255,.45);background:rgba(10,132,255,.1)}
+.row-acts{display:flex;gap:8px;align-items:center;flex-shrink:0}
+.r-inp{font-family:var(--num);font-size:13px;color:var(--blue);background:transparent;border:none;border-bottom:1.5px solid var(--blue);padding:3px 0;width:130px;outline:none;text-align:right;border-radius:0}
+.r-inp::placeholder{color:var(--text-3)}
 
 /* ══ diagnosis ══ */
 .dg{display:flex;align-items:center;gap:10px;min-height:38px;
@@ -609,8 +612,9 @@ const S={
   wifi:{on:true,ssid:'BeWinner_5G_001',pwd:'bw88888888',band:true,nfc:true,
     band24:{on:true,ssid:'BeWinner_2.4G_001',pwd:'bw88888888'},
     band5:{on:true,ssid:'BeWinner_5G_001',pwd:'bw88888888'}},
-  pwdLink:'u',             // which Wi-Fi the password sheet shows: 'u' merged | '2' | '5'
-  banned:[],               // v3.4: banned devices — cannot connect to this box
+	pwdLink:'u',             // deprecated — kept for backward compat; wifiEdit replaces it
+	wifiEdit:null,           // v3.6: {field:'ssid'|'pwd', band:'u'|'2'|'5'} — inline editing target
+	banned:[],               // v3.4: banned devices — cannot connect to this box
   rj45:0,                  // 0 LAN | 1 WAN
   bright:80,
   autoBright:false,
@@ -663,6 +667,7 @@ const $=i=>document.getElementById(i);
 const pad=n=>String(n).padStart(2,'0');
 const hhmmss=s=>`${pad(s/3600|0)}:${pad((s%3600)/60|0)}:${pad(s%60)}`;
 const mmss=ms=>{const s=Math.ceil(ms/1000);return `${pad(s/60|0)}:${pad(s%60)}`};
+const escHtml=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 /* ════════ HELPERS ════════ */
 function sigBars(n,tone){
   let cls='sig s'+n;
@@ -755,7 +760,7 @@ function renderStatus(){
      <span class="sb-r">${wifiIc}${nfc}${battHTML()}</span>`;
 }
 const TITLES={
-  menu:'设置',acct:'账号设置',wifi:'Wi-Fi 设置',clients:'接入设备',pwd:'Wi-Fi 密码',
+  menu:'设置',acct:'账号设置',wifi:'Wi-Fi 设置',clients:'接入设备',
   agglink:'聚合链路设备',linkset:'链路设置',
   diag:'网络诊断',
   net:'网络设置',dev:'设备设置',devinfo:'设备信息',sleep:'自动休眠',bright:'屏幕亮度',
@@ -1015,6 +1020,7 @@ function buildList(rows){
     let right='';
     if(r.sw!==undefined)right=`<span class="sw ${r.sw?'on':''}"><i></i></span>`;
     else if(r.rd!==undefined)right=`<span class="rd ${r.rd?'on':''}"></span>`;
+    else if(r.input!==undefined)right=`<input class="r-inp" id="wifiInput" value="${escHtml(r.v||"")}" type="${r.input}" maxlength="63" autocomplete="off" />`;
     else right=`<span class="r-v">${r.v?`<span>${r.v}</span>`:''}${r.chev?'<span class="chev">›</span>':''}</span>`;
     return `<div class="${cls}" data-fi="${fi}">
       <span class="r-l"><span class="r-t">${r.t}</span>${r.s?`<span class="r-s">${r.s}</span>`:''}</span>
@@ -1055,27 +1061,36 @@ function rowsWifi(){
      NFC 分享. 接入设备 moved off this page — it is a first-level settings tile.
      v3.5: 5 GHz section above 2.4 GHz; each band has its own on/off switch and
      an off band hides its 名称/密码 rows; the rows are labelled 名称/密码 uniformly
-     (the band is identified by the section head / row.band on the pwd row). */
-  let r=[{t:'Wi-Fi',sw:S.wifi.on}];
+     (the band is identified by the section head / row.band on the pwd row).
+     v3.6: name/pwd rows support inline editing — when S.wifiEdit matches a row,
+     that row renders an <input> instead of the static value. */
+  const we=S.wifiEdit;
+  let r=[{t:"Wi-Fi",sw:S.wifi.on}];
   if(S.wifi.band){
-    r.push({t:'Wi-Fi 名称',v:S.wifi.ssid});
-    r.push({t:'Wi-Fi 密码',v:S.wifi.pwd,chev:1});
+    r.push({t:"Wi-Fi 名称",v:S.wifi.ssid,chev:1,
+      ...(we&&we.field==="ssid"&&we.band==="u"?{input:"text",editing:1}:{})});
+    r.push({t:"Wi-Fi 密码",v:S.wifi.pwd,chev:1,
+      ...(we&&we.field==="pwd"&&we.band==="u"?{input:"password",editing:1}:{})});
   }else{
-    r.push({sect:'5 GHz'});
-    r.push({t:'5 GHz Wi-Fi',sw:S.wifi.band5.on});
+    r.push({sect:"5 GHz"});
+    r.push({t:"5 GHz Wi-Fi",sw:S.wifi.band5.on});
     if(S.wifi.band5.on){
-      r.push({t:'Wi-Fi 名称',v:S.wifi.band5.ssid});
-      r.push({t:'Wi-Fi 密码',v:S.wifi.band5.pwd,chev:1,band:'5'});
+      r.push({t:"Wi-Fi 名称",v:S.wifi.band5.ssid,chev:1,band:"5",
+        ...(we&&we.field==="ssid"&&we.band==="5"?{input:"text",editing:1}:{})});
+      r.push({t:"Wi-Fi 密码",v:S.wifi.band5.pwd,chev:1,band:"5",
+        ...(we&&we.field==="pwd"&&we.band==="5"?{input:"password",editing:1}:{})});
     }
-    r.push({sect:'2.4 GHz'});
-    r.push({t:'2.4 GHz Wi-Fi',sw:S.wifi.band24.on});
+    r.push({sect:"2.4 GHz"});
+    r.push({t:"2.4 GHz Wi-Fi",sw:S.wifi.band24.on});
     if(S.wifi.band24.on){
-      r.push({t:'Wi-Fi 名称',v:S.wifi.band24.ssid});
-      r.push({t:'Wi-Fi 密码',v:S.wifi.band24.pwd,chev:1,band:'2'});
+      r.push({t:"Wi-Fi 名称",v:S.wifi.band24.ssid,chev:1,band:"2",
+        ...(we&&we.field==="ssid"&&we.band==="2"?{input:"text",editing:1}:{})});
+      r.push({t:"Wi-Fi 密码",v:S.wifi.band24.pwd,chev:1,band:"2",
+        ...(we&&we.field==="pwd"&&we.band==="2"?{input:"password",editing:1}:{})});
     }
   }
-  r.push({t:'多频合一',s:S.wifi.band?'2.4G / 5G 同名合并':'2.4G / 5G 独立设置',sw:S.wifi.band});
-  r.push({t:'NFC 分享',s:'碰一碰连接',sw:S.wifi.nfc});
+  r.push({t:"多频合一",s:S.wifi.band?"2.4G / 5G 同名合并":"2.4G / 5G 独立设置",sw:S.wifi.band});
+  r.push({t:"NFC 分享",s:"碰一碰连接",sw:S.wifi.nfc});
   return r;
 }
 /* 聚合链路设备 (v3.0, v3.4): four paths — two modem groups, USB, wired.
@@ -1138,20 +1153,25 @@ function rowsDevInfo(){
     {t:'运行时长',v:hhmmss(S.uptime)},{t:'电池',v:S.batt+'%'},
   ];
 }
-/* ════════ SPECIAL VIEWS ════════ */
-function viewWifiPwd(){
-  /* v3.4: the sheet shows whichever Wi-Fi was tapped — merged, 2.4G or 5G */
-  const pw=S.pwdLink==='2'?S.wifi.band24:S.pwdLink==='5'?S.wifi.band5:S.wifi;
-  return `<div style="padding:14px 6px;text-align:center">
-    <div style="font-size:10.5px;color:var(--text-3);letter-spacing:.1em">${S.pwdLink==='2'?'2.4 GHz 密码':S.pwdLink==='5'?'5 GHz 密码':'当前密码'}</div>
-    <div style="font-family:var(--num);font-size:24px;font-weight:600;color:#fff;
-      letter-spacing:.06em;margin:11px 0 4px;word-break:break-all">${pw.pwd}</div>
-    <div style="font-size:11px;color:var(--text-2);margin-top:13px;line-height:1.7">
-      使用手机连接 <b style="color:#fff">${pw.ssid}</b><br>或开启 NFC 分享碰一碰连接</div>
-    <div style="font-size:10.5px;color:var(--text-3);margin-top:16px;line-height:1.6">
-      如需修改名称或密码，请在松果智联 APP 中操作</div>
-  </div>`;
+/* ════════ WIFI INLINE EDIT (v3.6) ════════ */
+function commitWifiEdit(){
+  const inp=$('wifiInput');if(!inp||!S.wifiEdit)return true;
+  const val=inp.value.trim();
+  if(S.wifiEdit.field==='ssid'&&!val){toast('名称不能为空');return false}
+  if(S.wifiEdit.field==='pwd'&&val.length<8){toast('密码至少 8 位');return false}
+  const ef=S.wifiEdit;
+  const tgt=ef.band==='2'?S.wifi.band24:ef.band==='5'?S.wifi.band5:S.wifi;
+  tgt[ef.field]=val;
+  S.wifiEdit=null;
+  toast('已保存','ok');
+  render();
+  return true;
 }
+function cancelWifiEdit(){
+  S.wifiEdit=null; render();
+}
+
+/* ════════ SPECIAL VIEWS ════════ */
 function viewClients(){
   /* v3.4: two sections on one page — 已连接 (ban / disconnect) and 禁用设备
      (restore). A banned device is disconnected and can no longer connect. */
@@ -1165,8 +1185,10 @@ function viewClients(){
       <div class="row${i===S.fx?' fx':''}" data-fi="${i}">
         <span class="r-l"><span class="r-t">${c.n}</span>
           <span class="r-s">${c.mac} &nbsp;·&nbsp; ${c.r}</span></span>
-        <span class="dc-btn${i===S.fx?' on':''}" data-act="dc">断开</span>
-        <span class="cl-btn ban${i===S.fx?' on':''}" data-act="ban">禁用</span>
+        <span class="row-acts">
+          <span class="dc-btn${i===S.fx?' on':''}" data-act="dc">断开</span>
+          <span class="cl-btn ban${i===S.fx?' on':''}" data-act="ban">禁用</span>
+        </span>
       </div>`).join('')}
       <div style="font-size:10px;color:var(--text-3);text-align:center;margin-top:10px">
         点击行可断开连接 · 禁用后设备无法再连接本机</div>
@@ -1313,7 +1335,7 @@ const ROWS={
 const VIEWS={
   home:viewHomeAgg, 'home-normal':viewHomeNormal, unact:viewUnact, nosim:viewNoSim,
   lock:viewLock, menu:viewMenu,
-  pwd:viewWifiPwd, clients:viewClients,
+  clients:viewClients,
   diag:viewDiag, upg:viewUpg, app:viewApp,
 };
 function maxFocus(){
@@ -1327,7 +1349,7 @@ function maxFocus(){
      stage has something to trigger; the last two slots are back / home */
   if(S.page==='diag')return !S.diag||S.diag.cur>=DIAG.length?3:2;
   if(S.page==='upg')return !S.upg||S.upg.stage==='found'?3:2;
-  if(S.page==='pwd'||S.page==='app')return 2;
+  if(S.page==='app')return 2;
   return 0;
 }
 function renderBody(){
@@ -1487,24 +1509,29 @@ function confirm(){
       }
       break;
     }
-    case 'wifi':{
-      /* v3.4: indexes are band-dependent — resolve by row identity instead of
-         a fixed offset. v3.5: band rows now each carry their own switch, and the
-         name/pwd rows are labelled uniformly, so the sheet band is row.band. */
-      const wf=focusable(rowsWifi());
-      const row=wf[f];
-      if(!row)break;
-      if(row.t==='Wi-Fi'){S.wifi.on=!S.wifi.on;toast('Wi-Fi 已'+(S.wifi.on?'开启':'关闭'),S.wifi.on?'ok':'');break}
-      if(row.t==='5 GHz Wi-Fi'){S.wifi.band5.on=!S.wifi.band5.on;toast('5G Wi-Fi 已'+(S.wifi.band5.on?'开启':'关闭'),S.wifi.band5.on?'ok':'');break}
-      if(row.t==='2.4 GHz Wi-Fi'){S.wifi.band24.on=!S.wifi.band24.on;toast('2.4G Wi-Fi 已'+(S.wifi.band24.on?'开启':'关闭'),S.wifi.band24.on?'ok':'');break}
-      if(row.t==='多频合一'){S.wifi.band=!S.wifi.band;toast('多频合一 '+(S.wifi.band?'ON':'OFF'));break}
-      if(row.t==='NFC 分享'){S.wifi.nfc=!S.wifi.nfc;toast('NFC 分享 '+(S.wifi.nfc?'ON':'OFF'));break}
-      if(row.chev){   /* a password row — open the sheet for that band */
-        S.pwdLink=row.band||'u';
-        go('pwd');break;
-      }
-      toast('请在松果智联 APP 中修改');break;
-    }
+	    case 'wifi':{
+	      /* v3.4: indexes are band-dependent — resolve by row identity instead of
+	         a fixed offset. v3.5: band rows now each carry their own switch, and the
+	         name/pwd rows are labelled uniformly, so the sheet band is row.band.
+	         v3.6: name/pwd rows support inline editing — tapping enters edit mode
+	         with an <input> rendered in place of the static value. */
+	      const wf=focusable(rowsWifi());
+	      const row=wf[f];
+	      if(!row)break;
+	      if(row.t==='Wi-Fi'){S.wifi.on=!S.wifi.on;toast('Wi-Fi 已'+(S.wifi.on?'开启':'关闭'),S.wifi.on?'ok':'');break}
+	      if(row.t==='5 GHz Wi-Fi'){S.wifi.band5.on=!S.wifi.band5.on;toast('5G Wi-Fi 已'+(S.wifi.band5.on?'开启':'关闭'),S.wifi.band5.on?'ok':'');break}
+	      if(row.t==='2.4 GHz Wi-Fi'){S.wifi.band24.on=!S.wifi.band24.on;toast('2.4G Wi-Fi 已'+(S.wifi.band24.on?'开启':'关闭'),S.wifi.band24.on?'ok':'');break}
+	      if(row.t==='多频合一'){S.wifi.band=!S.wifi.band;toast('多频合一 '+(S.wifi.band?'ON':'OFF'));break}
+	      if(row.t==='NFC 分享'){S.wifi.nfc=!S.wifi.nfc;toast('NFC 分享 '+(S.wifi.nfc?'ON':'OFF'));break}
+	      /* name row or password row — enter inline edit */
+	      if(row.t==='Wi-Fi 名称'||row.chev){
+	        S.wifiEdit={field:row.t==='Wi-Fi 名称'?'ssid':'pwd',band:row.band||'u'};
+	        render();
+	        setTimeout(()=>{const inp=$('wifiInput');if(inp){inp.focus();inp.select()}},60);
+	        break;
+	      }
+	      toast('请在松果智联 APP 中修改');break;
+	    }
     case 'agglink':{
       if(f===0)openLinkset('A');
       else if(f===1)openLinkset('B');
@@ -1572,7 +1599,7 @@ function confirm(){
       disconnectClient(S.fx);
       break;
     }
-    case 'pwd': case 'app': break;   // only footer slots — intercepted above
+    case 'app': break;   // only footer slots — intercepted above
   }
   render();resetIdle();
 }
@@ -1663,6 +1690,15 @@ $('scr').addEventListener('click',e=>{
   if(tgt.closest('#mNo')){closeModal();return}
   if(tgt.closest('#mYes')){confirm();return}
   if(S.modal)return;
+  /* v3.6: wifi inline edit — clicking outside the input commits */
+  if(S.wifiEdit&&S.page==='wifi'){
+    const inp=$('wifiInput');
+    if(!inp||!inp.contains(tgt)){
+      if(!commitWifiEdit())return;
+      /* after commit, tgt may have been replaced by render() — re-resolve */
+      tgt=document.elementFromPoint(e.clientX,e.clientY)||e.target;
+    }
+  }
   const pe=tgt.closest('#pwEye');
   if(pe){S.showPwd=!S.showPwd;render();return}
   /* #aggBtn has NO click branch on purpose (v3.2): it is hold-to-toggle,
@@ -1743,6 +1779,12 @@ document.addEventListener('keydown',e=>{
   if(S.page==='lock'){
     if(e.key==='Enter'&&!e.repeat){e.preventDefault();startHold()}
     else if(e.key==='1'){cycAct()}
+    return;
+  }
+  /* v3.6: wifi inline edit — Enter commits, Escape cancels, other keys pass through to <input> */
+  if(S.wifiEdit){
+    if(e.key==='Enter'){e.preventDefault();commitWifiEdit();return}
+    if(e.key==='Escape'){e.preventDefault();cancelWifiEdit();return}
     return;
   }
   if(e.key==='Enter'){

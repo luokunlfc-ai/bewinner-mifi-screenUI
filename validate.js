@@ -42,6 +42,7 @@ eval(js+`
   viewHomeNormal,viewHomeAgg,viewMenu,viewLock,renderStatus,renderFooter,renderHeader,wifiBar,
   maskPhone,rowsAcct,rowsDev,rowsBright,rowsLinkset,rowsWifi,rowsAggLink,viewClients,
   banClient,disconnectClient,unbanClient,openLinkset,toggleAgg,
+  commitWifiEdit,cancelWifiEdit,escHtml,
   startAggHold,cancelAggHold,
   unbindPending,unbindLeft,UNBIND_TTL,mmss});
 `);
@@ -180,9 +181,18 @@ ok('name/pwd labels drop the band prefix',
   wf2.filter(r=>/名称|密码/.test(r.t)).length===4
   &&!wf2.some(r=>r.t==='2.4G Wi-Fi 名称'||r.t==='5G Wi-Fi 名称'),
   wf2.map(r=>r.t||'sect').join(' | '));
+/* v3.6: name rows carry chev and band for inline editing */
+ok('name rows have chev and band',
+  wf2.filter(r=>r.t==='Wi-Fi 名称').every(r=>r.chev===1&&r.band),
+  wf2.filter(r=>r.t==='Wi-Fi 名称').map(r=>r.band).join(','));
+S.wifi.band=true;let wf3=focusable(rowsWifi());
+ok('merged name row has chev',
+  wf3.filter(r=>r.t==='Wi-Fi 名称').every(r=>r.chev===1),
+  wf3.filter(r=>r.t==='Wi-Fi 名称').map(r=>r.chev).join(','));
+S.wifi.band=false;
 S.page='wifi';S.fx=wf2.findIndex(r=>r.t==='Wi-Fi 密码'&&r.band==='5');
-S.modal=null;S.stack=[{p:'menu',f:0}];confirm();
-ok('5G pwd row opens its own sheet',S.page==='pwd'&&S.pwdLink==='5',`${S.page}/${S.pwdLink}`);
+S.wifiEdit=null;S.modal=null;S.stack=[{p:'menu',f:0}];confirm();
+ok('5G pwd row enters inline edit',S.wifiEdit&&S.wifiEdit.field==='pwd'&&S.wifiEdit.band==='5','field='+(S.wifiEdit&&S.wifiEdit.field)+' band='+(S.wifiEdit&&S.wifiEdit.band));
 S.page='wifi';S.fx=wf2.findIndex(r=>r.t==='5 GHz Wi-Fi');
 S.modal=null;S.stack=[{p:'menu',f:0}];S.wifi.band5.on=true;confirm();
 ok('band switch flips',S.wifi.band5.on===false,'band switch no-op');
@@ -191,8 +201,24 @@ ok('off band hides its name/pwd rows',
   (S.wifi.band5.on=false,!focusable(rowsWifi()).some(r=>r.band==='5'))
   &&(S.wifi.band5.on=true,true),'off band rows still rendered');
 S.wifi.band=true;S.page='wifi';
-S.fx=wf.findIndex(r=>r.t==='Wi-Fi 密码');S.modal=null;S.stack=[{p:'menu',f:0}];confirm();
-ok('tapping merged password opens the pwd sheet',S.page==='pwd'&&S.pwdLink==='u',`${S.page}/${S.pwdLink}`);
+S.fx=wf.findIndex(r=>r.t==='Wi-Fi 密码');S.wifiEdit=null;S.modal=null;S.stack=[{p:'menu',f:0}];confirm();
+ok('tapping merged password enters inline edit',S.wifiEdit&&S.wifiEdit.field==='pwd'&&S.wifiEdit.band==='u','field='+(S.wifiEdit&&S.wifiEdit.field)+' band='+(S.wifiEdit&&S.wifiEdit.band));
+/* v3.6: edit validation — empty name rejected, short pwd rejected, commit updates state */
+S.wifi.band=true;S.wifi.pwd='oldtest';
+cache.wifiInput=cache.wifiInput||{};cache.wifiInput.value='newtest99';
+S.wifiEdit={field:'pwd',band:'u'};
+commitWifiEdit();
+ok('commitWifiEdit updates merged pwd',S.wifi.pwd==='newtest99'&&S.wifiEdit===null,'pwd='+S.wifi.pwd+' wifiEdit='+JSON.stringify(S.wifiEdit));
+S.wifi.pwd='bw88888888';
+S.wifiEdit={field:'ssid',band:'u'};cache.wifiInput.value='';
+const r1=commitWifiEdit();
+ok('empty SSID rejected',r1===false&&S.wifiEdit!==null,'r='+r1+' field='+(S.wifiEdit&&S.wifiEdit.field));
+S.wifiEdit=null;
+S.wifiEdit={field:'pwd',band:'u'};cache.wifiInput.value='123';
+const r2=commitWifiEdit();
+ok('short pwd rejected',r2===false&&S.wifiEdit!==null,'r='+r2);
+S.wifiEdit=null;
+S.wifi.band=false;
 
 /* ── 6. meta strip & home layout ── */
 console.log('6) homes & meta strip');
@@ -251,7 +277,9 @@ S.banned=[];
 const vc=viewClients();
 ok('clients show MAC below the device name',/[0-9A-F]{2}(:[0-9A-F]{2}){5}/.test(vc),'mac line missing');
 ok('clients keep the 禁用 / 断开 actions',/data-act="ban"/.test(vc)&&/data-act="dc"/.test(vc),'action buttons missing');
-ok('断开 button sits before 禁用',vc.indexOf('data-act="dc"')<vc.indexOf('data-act="ban"'),'button order wrong');
+ok('断开/禁用 wrapped in row-acts container',/class="row-acts"/.test(vc),'row-acts missing');
+ok('.row-acts CSS rule exists',/\.row-acts\s*\{/.test(src),'.row-acts style missing');
+ok('断开 before 禁用 inside row-acts',vc.indexOf('data-act="dc"')<vc.indexOf('data-act="ban"'),'button order wrong');
 ok('no ip field survives',!/\bip\b/.test(src),'stale ip reference');
 ok('clients page carries the banned-list section',/禁用设备 · 0/.test(vc),'banned section missing');
 const n0=S.clients.length;
@@ -424,8 +452,7 @@ S.diag=null;
 S.upg=null;S.page='upg';S.fx=maxFocus()-2;S.stack=[{p:'dev',f:4}];S.modal=null;confirm();
 ok('upg back slot returns',S.page==='dev',S.page);
 S.upg=null;
-S.page='pwd';S.fx=maxFocus()-2;S.stack=[{p:'wifi',f:3}];S.modal=null;confirm();
-ok('pwd backs to wifi',S.page==='wifi',S.page);
+/* v3.6: pwd page removed — back navigation through pwd no longer exists */
 S.page='devinfo';S.fx=0;const dm=maxFocus();
 S.fx=dm-1;S.stack=[{p:'dev',f:3},{p:'menu',f:5}];S.modal=null;confirm();
 ok('home slot jumps straight home',S.page==='home'&&S.stack.length===0,`${S.page} stack=${S.stack.length}`);
@@ -439,6 +466,19 @@ ok('rows are tappable (data-fi)',/data-fi="\$\{fi\}"/.test(src)||/data-fi=/.test
 /* lock screen */
 S.act='online';S.agg=true;S.page='home';S.stack=[];
 lock();
+/* v3.6: wifi inline editing infrastructure */
+ok('buildList has r.input branch',/r\.input!==undefined/.test(src),'r.input rendering missing');
+ok('.r-inp CSS defined',/\.r-inp\s*\{/.test(src),'r-inp style missing');
+ok('escHtml helper defined',/escHtml/.test(src),'escHtml missing');
+ok('commitWifiEdit/cancelWifiEdit defined',/function commitWifiEdit/.test(src)&&/function cancelWifiEdit/.test(src),'edit functions missing');
+ok('S.wifiEdit initialised null',/wifiEdit:\s*null/.test(src),'wifiEdit not null');
+ok('keyboard handler catches wifiEdit',src.indexOf('S.wifiEdit',src.indexOf("addEventListener('keydown'"))>0,'wifiEdit key handler missing');
+ok('click delegate catches wifiEdit',src.indexOf('S.wifiEdit',src.indexOf("$('scr').addEventListener('click'"))>0,'wifiEdit click handler missing');
+ok('no viewWifiPwd remnant',!/function viewWifiPwd/.test(src),'viewWifiPwd still present');
+ok('no VIEWS.pwd remnant',!/pwd:\s*viewWifiPwd/.test(src),'VIEWS.pwd still present');
+let _titlesDef=(src.match(/const TITLES=\{[^}]+\}/)||[''])[0];
+ok('no TITLES.pwd remnant',!_titlesDef.includes("pwd:'"),'TITLES.pwd still present: '+_titlesDef.slice(0,80));
+ok('no pwd in maxFocus',!/S\.page==='pwd'/.test(src),'pwd still in maxFocus');
 ok('lock() enters the lock screen',S.page==='lock',S.page);
 /* pin every path on so the 4-way readout is deterministic (BFS may have flipped 数据连接) */
 S.connA=true;S.connB=true;S.sims[4].st='ok';S.eth.plugged=true;S.agg=true;

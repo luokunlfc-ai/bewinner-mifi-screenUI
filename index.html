@@ -114,7 +114,6 @@ body::before{
 }
 .hb-btn.r{grid-column:3;justify-self:end;margin-left:0;margin-right:-4px}
 .hb-btn:active{background:#1C212A}
-.hb-btn.fx{background:var(--blue);color:#fff}
 
 /* ══ scroll body ══ */
 .pbody{flex:1;overflow:hidden;position:relative;min-height:0}
@@ -347,9 +346,6 @@ body::before{
 }
 .tile .tt{font-size:11px;color:var(--text);letter-spacing:.02em}
 .tile.dis{opacity:.32}
-/* keyboard-demo focus ring (touch needs none) */
-.tile.fx{background:#161A20}
-.tile.fx .ti{box-shadow:0 0 0 2px var(--blue),0 4px 14px rgba(0,0,0,.45)}
 
 /* ══ SETTINGS LIST (ref: 设置页) — divider rows, iOS switches ══ */
 .list{padding-bottom:6px}
@@ -368,13 +364,7 @@ body::before{
   display:flex;align-items:center;gap:6px;flex-shrink:0;
 }
 .row .r-v .chev{color:var(--text-3);font-size:15px;line-height:1}
-/* focus: subtle raised fill + blue left marker, NOT full inversion */
-.row.fx{background:#161A20}
-.row.fx::before{
-  content:'';position:absolute;left:0;top:8px;bottom:8px;width:2.5px;
-  border-radius:2px;background:var(--blue);box-shadow:0 0 8px rgba(10,132,255,.6);
-}
-.row.fx .r-t{color:#fff;font-weight:500}
+.row:active{background:#161A20}
 .row.disabled{opacity:.36}
 .row.danger .r-t{color:var(--alert)}
 /* brightness edit mode: tap the value row to enter/leave it, ↑↓ adjusts
@@ -425,8 +415,7 @@ body::before{
   font-size:10.5px;color:var(--text-3);padding:3.5px 10px;border-radius:20px;
   border:1px solid var(--divider);flex-shrink:0;transition:all .16s ease;cursor:pointer;
 }
-.dc-btn.on{color:var(--alert);border-color:rgba(255,69,58,.5);background:rgba(255,69,58,.12)}
-.cl-btn.ban.on{color:var(--warn);border-color:rgba(255,159,10,.5);background:rgba(255,159,10,.12)}
+.dc-btn:active,.cl-btn:active{opacity:.6}
 .cl-btn.unban{color:var(--blue);border-color:rgba(10,132,255,.45);background:rgba(10,132,255,.1)}
 .row-acts{display:flex;gap:8px;align-items:center;flex-shrink:0}
 .r-inp{font-family:var(--num);font-size:13px;color:var(--blue);background:transparent;border:none;border-bottom:1.5px solid var(--blue);padding:3px 0;width:130px;outline:none;text-align:right;border-radius:0}
@@ -618,7 +607,6 @@ const S={
   rj45:0,                  // 0 LAN | 1 WAN
   bright:80,
   autoBright:false,
-  brightEdit:false,        // brightness row in adjust mode: ↑↓ tunes, tap exits
   showPwd:false,           // home Wi-Fi strip masks the password until the eye is tapped
   temp:42,                 // °C, from the SoC sensor
   data:{used:12.4,total:100},   // GB — remaining is derived, never stored twice
@@ -775,13 +763,11 @@ function renderHeader(){
   if(S.page==='menu'){
     h.innerHTML=`<div class="phead"><div class="ph-t">${TITLES.menu}</div></div>`;return;
   }
-  /* v3.1: back / home live in the header now. Same two keyboard focus slots
-     (m-2 back, m-1 home), same ids, just moved off the footer */
-  const m=maxFocus(), bk=S.fx===m-2, hm=S.fx===m-1;
+  /* v3.1: back / home live in the header now — tappable buttons, no focus slots */
   h.innerHTML=`<div class="phead">
-    <span class="hb-btn${bk?' fx':''}" id="fBack">${icoBack(10)} 返回</span>
+    <span class="hb-btn" id="fBack">${icoBack(10)} 返回</span>
     <div class="ph-t">${TITLES[S.page]||''}</div>
-    <span class="hb-btn r${hm?' fx':''}" id="fHome">${icoHome(11)} 主页</span>
+    <span class="hb-btn r" id="fHome">${icoHome(11)} 主页</span>
   </div>`;
 }
 function renderFooter(){
@@ -951,7 +937,7 @@ const TILES=[
 function viewMenu(){
   return `<div class="g9">${TILES.map((t,i)=>{
     const dis=t.off&&S.act!=='online';
-    return `<div class="tile${i===S.fx?' fx':''}${dis?' dis':''}" data-tile="${i}">
+    return `<div class="tile${dis?' dis':''}" data-tile="${i}">
       <span class="ti" style="background:${t.c}">${t.ic}</span>
       <span class="tt">${t.t}</span>
     </div>`;
@@ -1014,9 +1000,9 @@ function buildList(rows){
   let html=rows.map(r=>{
     /* 'sect' in r — an empty string is a spacer, still non-focusable */
     if('sect' in r)return `<div class="sect${r.sect?'':' gap'}">${r.sect}</div>`;
-    if('slider' in r)return `<div class="sld-row"><div class="sld${r.dim?' dim':''}"><div class="sf" style="width:${r.slider}%"></div><div class="sk" style="left:${r.slider}%"></div></div></div>`;
+    if('slider' in r)return `<div class="sld-row"><div class="sld${r.dim?' dim':''}" id="briSlider"><div class="sf" style="width:${r.slider}%"></div><div class="sk" style="left:${r.slider}%"></div></div></div>`;
     fi++;
-    let cls='row'+(fi===S.fx?' fx':'')+(r.dis?' disabled':'')+(r.danger?' danger':'')+(r.editing?' editing':'');
+    let cls='row'+(r.dis?' disabled':'')+(r.danger?' danger':'')+(r.editing?' editing':'');
     let right='';
     if(r.sw!==undefined)right=`<span class="sw ${r.sw?'on':''}"><i></i></span>`;
     else if(r.rd!==undefined)right=`<span class="rd ${r.rd?'on':''}"></span>`;
@@ -1122,7 +1108,7 @@ function rowsLinkset(){
     {t:'数据连接',s:'关闭后该卡无数据连接，无法参与聚合',sw:conn},
     {sect:'卡槽选择 · 同组仅 1 路可用'},
     {t:'内置-'+inn.nm,rd:cur===inIdx},
-    {t:'插拔卡',s:ext.st==='empty'?'未插入':ext.op,rd:cur===exIdx,dis:ext.st!=='ok'},
+    {t:'外置卡',s:ext.st==='empty'?'未插入':ext.op,rd:cur===exIdx,dis:ext.st!=='ok'},
   ];
 }
 function rowsNet(){
@@ -1182,12 +1168,12 @@ function viewClients(){
       暂无接入设备<br>连接 ${S.wifi.ssid} 后显示在此</div>`;
   }else{
     h+=`<div class="list">${S.clients.map((c,i)=>`
-      <div class="row${i===S.fx?' fx':''}" data-fi="${i}">
+      <div class="row" data-fi="${i}">
         <span class="r-l"><span class="r-t">${c.n}</span>
           <span class="r-s">${c.mac} &nbsp;·&nbsp; ${c.r}</span></span>
         <span class="row-acts">
-          <span class="dc-btn${i===S.fx?' on':''}" data-act="dc">断开</span>
-          <span class="cl-btn ban${i===S.fx?' on':''}" data-act="ban">禁用</span>
+          <span class="dc-btn" data-act="dc">断开</span>
+          <span class="cl-btn ban" data-act="ban">禁用</span>
         </span>
       </div>`).join('')}
       <div style="font-size:10px;color:var(--text-3);text-align:center;margin-top:10px">
@@ -1237,9 +1223,7 @@ function unbanClient(i){
 function rowsBright(){
   return [
     {slider:S.bright,dim:S.autoBright},
-    {t:'屏幕亮度',v:S.bright+'%',
-      ...(S.brightEdit?{s:'拖动滑杆或 ↑↓ 调节 · 再次点击完成',editing:1}:{}),
-      dis:S.autoBright,disMsg:'自动亮度开启中，由系统自动调节'},
+    {t:'屏幕亮度',v:S.autoBright?'自动':S.bright+'%'},
     {t:'自动亮度',s:'按环境光自动调节',sw:S.autoBright},
   ];
 }
@@ -1253,7 +1237,7 @@ function viewDiag(){
     <div class="nt-t">网络诊断</div>
     <div class="nt-d">逐项检测 6 个网络环节<br>约需 10 秒</div>
   </div>
-  <div class="list"><div class="row${S.fx===0?' fx':''}" data-fi="0">
+  <div class="list"><div class="row" data-fi="0">
     <span class="r-l"><span class="r-t">开始检测</span></span>
     <span class="r-v"><span class="chev">›</span></span></div></div>`;
   let done=d.results.filter(r=>r).length===DIAG.length;
@@ -1271,7 +1255,7 @@ function viewDiag(){
     ${done?`<div style="text-align:center;margin-top:14px;font-size:12px;
       color:${passed===DIAG.length?'var(--up)':'var(--warn)'}">
       ${passed===DIAG.length?'全部 6 项通过 ✓':`${passed}/6 项通过`}</div>
-    <div class="list" style="margin-top:10px"><div class="row${S.fx===0?' fx':''}" data-fi="0">
+    <div class="list" style="margin-top:10px"><div class="row" data-fi="0">
       <span class="r-l"><span class="r-t">重新检测</span></span>
       <span class="r-v"><span class="chev">›</span></span></div></div>`:''}
   </div>`;
@@ -1284,7 +1268,7 @@ function viewUpg(){
         <span class="r-s">2026-07-15 发布</span></span><span class="r-v">v2.1.3</span></div>
       <div class="row"><span class="r-l"><span class="r-t">设备 ID</span></span>
         <span class="r-v">BW-LIVE-001</span></div>
-      <div class="row${S.fx===0?' fx':''}" data-fi="0"><span class="r-l"><span class="r-t">检查更新</span></span>
+      <div class="row" data-fi="0"><span class="r-l"><span class="r-t">检查更新</span></span>
         <span class="r-v"><span class="chev">›</span></span></div>
     </div></div>`;
   if(u.stage==='check')return `<div class="notice">
@@ -1295,7 +1279,7 @@ function viewUpg(){
     <div style="font-size:10.5px;color:var(--text-3);font-family:var(--num);margin-top:2px">32.6 MB</div>
     <div style="margin-top:14px;font-size:11.5px;color:var(--text-2);line-height:1.85">
       · 优化聚合算法延迟<br>· 修复 Wi-Fi 断连问题<br>· 提升弱网推流稳定性</div>
-    <div class="list" style="margin-top:16px"><div class="row${S.fx===0?' fx':''}" data-fi="0">
+    <div class="list" style="margin-top:16px"><div class="row" data-fi="0">
       <span class="r-l"><span class="r-t">开始升级</span></span>
       <span class="r-v"><span class="chev">›</span></span></div></div>
     ${S.batt<=20?`<div class="hint-bar" style="margin:14px 0 0"><span class="hb-t">电量低于 20%，请先充电</span></div>`:''}
@@ -1338,20 +1322,6 @@ const VIEWS={
   clients:viewClients,
   diag:viewDiag, upg:viewUpg, app:viewApp,
 };
-function maxFocus(){
-  /* +2 on every subpage: header back button (slot m-2) and home button (m-1),
-     in visual order — ↓ past the last row reaches back first.
-     The settings grid has NO nav slots (it exits via right-swipe) */
-  if(ROWS[S.page])return focusable(ROWS[S.page]()).length+2;
-  if(S.page==='menu')return TILES.length;
-  if(S.page==='clients')return S.clients.length+2;
-  /* diag / upg expose one action row (start / re-run / upgrade) only when the
-     stage has something to trigger; the last two slots are back / home */
-  if(S.page==='diag')return !S.diag||S.diag.cur>=DIAG.length?3:2;
-  if(S.page==='upg')return !S.upg||S.upg.stage==='found'?3:2;
-  if(S.page==='app')return 2;
-  return 0;
-}
 function renderBody(){
   let b=$('body');
   if(ROWS[S.page]) b.innerHTML=buildList(ROWS[S.page]());
@@ -1360,9 +1330,6 @@ function renderBody(){
   // homes and the lock screen must fit without scrolling
   let isHome=S.page==='home'||S.page==='home-normal';
   b.classList.toggle('nohome',isHome||S.page==='lock');
-  // keep focused row in view
-  let f=b.querySelector('.row.fx');
-  if(f)f.scrollIntoView({block:'nearest'});
   if(isHome)checkFit(b);
 }
 /* nohome hides overflow, which would silently crop content instead of showing a
@@ -1397,15 +1364,14 @@ function syncRail(){
 }
 
 /* ════════ NAV ════════ */
-function go(p,f=0){S.stack.push({p:S.page,f:S.fx});S.page=p;S.fx=f;S.brightEdit=false;render();resetIdle()}
+function go(p,f=0){S.stack.push({p:S.page,f:S.fx});S.page=p;S.fx=f;render();resetIdle()}
 function back(){
   if(S.modal){closeModal();return}
-  S.brightEdit=false;
   if(S.stack.length){let x=S.stack.pop();S.page=x.p;S.fx=x.f;render()}else home();
   resetIdle();
 }
 function home(){
-  S.stack=[];S.fx=0;S.brightEdit=false;
+  S.stack=[];S.fx=0;
   S.page=S.act==='unactivated'?'unact':S.act==='no-sim'?'nosim':(S.agg?'home':'home-normal');
   render();resetIdle();
 }
@@ -1433,7 +1399,7 @@ function resetIdle(){
 function lock(){
   if(S.act!=='online')return;
   if(S.modal)closeModal();
-  S.stack=[];S.fx=0;S.brightEdit=false;
+  S.stack=[];S.fx=0;
   S.page='lock';render();
 }
 function unlock(){
@@ -1472,20 +1438,9 @@ function confirm(){
   if(S.modal){let f=S.modal.onYes;closeModal();if(f)f();return}
   let p=S.page,f=S.fx;
   if(p==='lock')return;   // the lock screen only listens to the long press
-  // home screens
-  if(p==='home'||p==='home-normal'){go('menu');return}
-  /* v3.3: unact has no action (the 放大二维码 button is gone); nosim still
-     enters settings on Enter, mirroring the left-swipe on a touch screen */
-  if(p==='nosim'){go('menu');return}
   // guarded rows
   let rows=ROWS[p]?focusable(ROWS[p]()):null;
   if(rows&&rows[f]&&rows[f].dis){toast(rows[f].disMsg||'当前不可用');return}
-  /* the header buttons sit at the last two focus slots of every subpage,
-     in visual order — back first (m-2), home last (m-1). The settings grid
-     has no nav slots, so it skips this interception entirely */
-  const mf=maxFocus();
-  if(p!=='menu'&&mf&&f===mf-2){back();return}
-  if(p!=='menu'&&mf&&f===mf-1){home();return}
 
   switch(p){
     case 'menu':{
@@ -1582,11 +1537,7 @@ function confirm(){
     case 'lang':{S.lang=f;toast(f?'Language → English':'语言 → 中文','ok');back();break}
     case 'upg': stepUpg(); break;
     case 'bright':{
-      if(f===0){
-        /* the dis guard above already toasted when auto-brightness owns the
-           value, so reaching here means manual mode — toggle adjust mode */
-        S.brightEdit=!S.brightEdit;
-      }else if(f===1){
+      if(f===1){
         S.autoBright=!S.autoBright;
         toast('自动亮度 '+(S.autoBright?'已开启':'已关闭'),S.autoBright?'ok':'');
       }
@@ -1727,6 +1678,13 @@ $('scr').addEventListener('click',e=>{
 });
 /* hold-to-unlock on the lock screen (touch + mouse) + swipe tracking */
 let tX=0,tY=0,swiped=false;
+/* brightness slider drag (touch) — tap or drag the track to set brightness */
+let briDrag=false;
+function setBri(e,el){
+  const r=el.getBoundingClientRect();
+  const pct=Math.max(10,Math.min(100,Math.round((e.clientX-r.left)/r.width*10)*10));
+  if(pct!==S.bright){S.bright=pct;render()}
+}
 $('scr').addEventListener('pointerdown',e=>{
   if(S.page==='lock'){e.preventDefault();startHold();return}
   tX=e.clientX;tY=e.clientY;
@@ -1734,12 +1692,20 @@ $('scr').addEventListener('pointerdown',e=>{
      released outside the 320×480 frame — without this a swipe leaving the
      screen edge never fires our handler (right-swipe home was lost) */
   try{$('scr').setPointerCapture(e.pointerId)}catch(_){}
+  const sl=e.target.closest('#briSlider');
+  if(sl&&S.page==='bright'&&!S.autoBright){briDrag=true;setBri(e,sl);return}
   const ab=e.target.closest('#aggBtn');
   if(ab&&(S.page==='home'||S.page==='home-normal'))startAggHold();
+});
+$('scr').addEventListener('pointermove',e=>{
+  if(!briDrag)return;
+  const sl=$('briSlider');
+  if(sl)setBri(e,sl);
 });
 /* swipe navigation: left on a home opens settings, right on settings goes home */
 $('scr').addEventListener('pointerup',e=>{
   if(S.page==='lock')return;
+  if(briDrag){briDrag=false;return}   // a slider drag is not a swipe
   const dx=e.clientX-tX,dy=e.clientY-tY;
   if(Math.abs(dx)<48||Math.abs(dx)<Math.abs(dy)*1.4)return;
   swiped=true;
@@ -1749,30 +1715,9 @@ $('scr').addEventListener('pointerup',e=>{
   else if(S.page==='menu'&&dx>0)home();
 });
 ['pointerup','pointercancel','pointerleave'].forEach(ev=>
-  $('scr').addEventListener(ev,()=>{cancelHold();cancelAggHold(!swiped)}));
+  $('scr').addEventListener(ev,()=>{briDrag=false;cancelHold();cancelAggHold(!swiped)}));
 
-/* ════════ KEYBOARD (demo aid only — the device is touch) ════════ */
-function moveFocus(d){
-  // brightness adjust mode: tap the value row enters it, ↑↓ tunes, tap exits
-  if(S.page==='bright'&&S.brightEdit){
-    S.bright=Math.max(10,Math.min(100,S.bright+d*10));
-    render();return;
-  }
-  if(S.modal){ // toggle modal buttons
-    let y=$('mYes'),n=$('mNo');
-    let onYes=y.classList.contains('fx')&&!n.classList.contains('fx');
-    y.classList.toggle('fx',!onYes);n.classList.toggle('fx',onYes);
-    return;
-  }
-  let m=maxFocus();
-  if(!m)return;
-  let n=S.fx+d;
-  if(S.page==='menu')n=(n+m)%m;   // 3×3 grid: pure wrap, there are no nav slots
-  else if(n<0)n=m-2;        // ↑ past the first row lands on ‹ 返回, not 主页 — both directions reach back first
-  else if(n>=m)n=0;    // ↓ past 主页 wraps to the first row
-  S.fx=n;
-  render();
-}
+/* ════════ DEMO KEYBOARD (device is touch — state shortcuts only, no focus navigation) ════════ */
 document.addEventListener('keydown',e=>{
   resetIdle();
   /* lock screen: held Enter = the long press */
@@ -1787,20 +1732,7 @@ document.addEventListener('keydown',e=>{
     if(e.key==='Escape'){e.preventDefault();cancelWifiEdit();return}
     return;
   }
-  if(e.key==='Enter'){
-    e.preventDefault();
-    /* ignore OS key-repeat: a held key would otherwise re-fire confirm and
-       flapping toggles */
-    if(e.repeat)return;
-    confirm();
-    return;
-  }
-  if(e.key==='ArrowUp'){e.preventDefault();moveFocus(S.page==='menu'?-3:-1);return}
-  if(e.key==='ArrowDown'){e.preventDefault();moveFocus(S.page==='menu'?3:1);return}
-  if(e.key==='ArrowLeft'&&S.page==='menu'){e.preventDefault();moveFocus(-1);return}
-  if(e.key==='ArrowRight'&&S.page==='menu'){e.preventDefault();moveFocus(1);return}
   if(e.key===' '){e.preventDefault();toggleAgg();return}
-  if(e.key==='Escape'){e.preventDefault();back();return}   // settings grid has no back button; Esc demos the right-swipe
   if(e.key==='1'){e.preventDefault();cycAct();return}
   if(e.key==='2'){
     e.preventDefault();
@@ -1849,8 +1781,8 @@ function jitter(){
 /* ════════ INIT ════════ */
 home();
 S.timers.tick=setInterval(jitter,1400);
-console.log('%cBeWinner 屏幕原型 v3（触控）','color:#0A84FF;font-weight:600');
-console.log('点击操作 / 锁屏长按解锁 / Space 聚合开关 / 1 状态 / 2 网线 / L 锁屏');
+console.log('%cBeWinner 屏幕原型 v3.7（纯触控）','color:#0A84FF;font-weight:600');
+console.log('点击操作 / 滑杆拖亮度 / 锁屏长按解锁 / Space 聚合开关 / 1 状态 / 2 网线 / L 锁屏');
 </script>
 </body>
 </html>

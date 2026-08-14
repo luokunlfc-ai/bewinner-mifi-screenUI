@@ -38,7 +38,7 @@ global.navigator={userAgent:'node'};
 /* eval'd const/let stay in eval's scope, so hoist what the checks need onto global */
 eval(js+`
 ;Object.assign(global,{ROWS,VIEWS,TITLES,TILES,NOCHROME,S,buildList,focusable,activeLinks,allLinks,
-  ethLink,sigRat,confirm,back,home,lock,unlock,startHold,cancelHold,maxFocus,moveFocus,
+  ethLink,sigRat,confirm,back,home,lock,unlock,startHold,cancelHold,setBri,
   viewHomeNormal,viewHomeAgg,viewMenu,viewLock,renderStatus,renderFooter,renderHeader,wifiBar,
   maskPhone,rowsAcct,rowsDev,rowsBright,rowsLinkset,rowsWifi,rowsAggLink,viewClients,
   banClient,disconnectClient,unbanClient,openLinkset,toggleAgg,
@@ -406,20 +406,9 @@ ok('wired row reports unplugged',/未插入网线/.test(wrow.s)&&!wrow.chev,'row
 S.eth.plugged=true;
 S.page='home';S.fx=0;
 
-/* ── 10. header back / home slots (v3.1: moved off the footer) ── */
+/* ── 10. header back / home (v3.7: pure tap buttons — no focus slots) ── */
 console.log('10) header back/home');
 S.act='online';S.agg=true;
-let backBad=[];
-for(const p of Object.keys(ROWS)){
-  S.page=p;S.fx=0;S.linkId='A';const m=maxFocus();
-  S.fx=m-2;S.stack=[{p:'menu',f:0}];S.modal=null;S.brightEdit=false;
-  try{confirm()}catch(e){backBad.push(p+':'+e.message);continue}
-  if(S.page!=='menu')backBad.push(p+'->'+S.page);
-}
-ok('every list page backs out from its back slot',backBad.length===0,backBad.join(','));
-/* the settings grid has NO nav slots — its focus range is exactly the 9 tiles */
-S.page='menu';S.fx=0;
-ok('menu has no back/home slots',maxFocus()===TILES.length,'grid should not carry nav slots');
 renderHeader();
 ok('menu header shows no nav buttons',
   !/id="fBack"/.test(cache.hdrSlot.innerHTML)&&!/id="fHome"/.test(cache.hdrSlot.innerHTML),
@@ -428,34 +417,40 @@ S.page='dev';S.fx=0;renderHeader();
 ok('subpage header has tappable back/home buttons',
   /id="fBack"/.test(cache.hdrSlot.innerHTML)&&/id="fHome"/.test(cache.hdrSlot.innerHTML),
   cache.hdrSlot.innerHTML);
+ok('header buttons carry no .fx focus class',!/hb-btn fx/.test(cache.hdrSlot.innerHTML),'focus class still applied');
 renderFooter();
 ok('subpage footer is gone',cache.footSlot.innerHTML==='','nav should live in the header only');
-S.fx=maxFocus()-2;renderHeader();
-ok('back button lights up on its slot',cache.hdrSlot.innerHTML.indexOf('hb-btn fx')<cache.hdrSlot.innerHTML.indexOf('主页'),cache.hdrSlot.innerHTML);
-S.fx=0;
+/* back() pops the stack; home() clears it — both are tap targets, not focus slots */
+S.page='dev';S.stack=[{p:'menu',f:0}];S.modal=null;back();
+ok('back() pops to the previous page',S.page==='menu',`landed on ${S.page}`);
+S.page='dev';S.stack=[{p:'menu',f:0},{p:'home',f:0}];S.modal=null;home();
+ok('home() clears the stack and returns home',S.page==='home'&&S.stack.length===0,`${S.page} stack=${S.stack.length}`);
+S.act='online';
+/* brightness: slider is draggable, auto-brightness is the only actionable row */
 ok('brightness is a list page',!!ROWS.bright&&!VIEWS.bright,'registration wrong');
-S.page='bright';S.fx=0;S.autoBright=false;S.brightEdit=false;S.modal=null;S.stack=[{p:'dev',f:0}];
-confirm();
-ok('tap enters brightness adjust',S.brightEdit===true,'did not enter');
-const b0=S.bright;
-moveFocus(1);
-ok('↑↓ tunes inside adjust mode',S.bright===Math.min(100,b0+10),`${b0} -> ${S.bright}`);
-confirm();
-ok('tap exits brightness adjust',S.brightEdit===false,'did not exit');
-S.autoBright=true;S.page='bright';S.fx=0;S.modal=null;confirm();
-ok('auto-brightness blocks adjust with a reason',
-  S.brightEdit===false&&/自动亮度/.test(cache.toast.textContent),cache.toast.textContent);
+const br=focusable(rowsBright());
+ok('brightness rows: value + auto switch (no adjust-mode row)',
+  br.length===2&&br[0].t==='屏幕亮度'&&br[1].t==='自动亮度'&&br[1].sw!==undefined,
+  br.map(r=>r.t).join(' | '));
 S.autoBright=false;
-S.diag=null;S.page='diag';S.fx=maxFocus()-2;S.stack=[{p:'menu',f:3}];S.modal=null;confirm();
-ok('diag back slot returns',S.page==='menu',S.page);
-S.diag=null;
-S.upg=null;S.page='upg';S.fx=maxFocus()-2;S.stack=[{p:'dev',f:4}];S.modal=null;confirm();
-ok('upg back slot returns',S.page==='dev',S.page);
-S.upg=null;
-/* v3.6: pwd page removed — back navigation through pwd no longer exists */
-S.page='devinfo';S.fx=0;const dm=maxFocus();
-S.fx=dm-1;S.stack=[{p:'dev',f:3},{p:'menu',f:5}];S.modal=null;confirm();
-ok('home slot jumps straight home',S.page==='home'&&S.stack.length===0,`${S.page} stack=${S.stack.length}`);
+ok('slider carries #briSlider for drag',/id="briSlider"/.test(buildList(rowsBright())),'slider not draggable');
+ok('manual value shows the %',rowsBright()[1].v===S.bright+'%',rowsBright()[1].v);
+S.autoBright=true;
+ok('auto-brightness shows 自动 instead of a %',rowsBright()[1].v==='自动',rowsBright()[1].v);
+ok('auto-brightness dims the slider',rowsBright()[0].dim===true,'slider not dimmed');
+S.page='bright';S.fx=1;S.modal=null;confirm();
+ok('auto-brightness switch flips',S.autoBright===false,'switch no-op');
+S.autoBright=false;
+/* setBri maps pointer position to a 10% brightness step */
+S.bright=50;
+setBri({clientX:96},{getBoundingClientRect:()=>({width:320,left:0})});
+ok('setBri sets brightness from position',S.bright===30,'brightness='+S.bright);
+S.bright=30;
+setBri({clientX:400},{getBoundingClientRect:()=>({width:320,left:0})});
+ok('setBri clamps to 100%',S.bright===100,'brightness='+S.bright);
+S.bright=30;
+setBri({clientX:-50},{getBoundingClientRect:()=>({width:320,left:0})});
+ok('setBri clamps to 10%',S.bright===10,'brightness='+S.bright);
 
 /* ── 11. v3.0: touch, lock screen, grid menu, per-link settings ── */
 console.log('11) v3.0 touch & lock');
@@ -478,7 +473,7 @@ ok('no viewWifiPwd remnant',!/function viewWifiPwd/.test(src),'viewWifiPwd still
 ok('no VIEWS.pwd remnant',!/pwd:\s*viewWifiPwd/.test(src),'VIEWS.pwd still present');
 let _titlesDef=(src.match(/const TITLES=\{[^}]+\}/)||[''])[0];
 ok('no TITLES.pwd remnant',!_titlesDef.includes("pwd:'"),'TITLES.pwd still present: '+_titlesDef.slice(0,80));
-ok('no pwd in maxFocus',!/S\.page==='pwd'/.test(src),'pwd still in maxFocus');
+ok('no pwd page remnant in the nav',!/S\.page==='pwd'/.test(src),'pwd still routed');
 ok('lock() enters the lock screen',S.page==='lock',S.page);
 /* pin every path on so the 4-way readout is deterministic (BFS may have flipped 数据连接) */
 S.connA=true;S.connB=true;S.sims[4].st='ok';S.eth.plugged=true;S.agg=true;
@@ -556,13 +551,12 @@ ok('right-swipe on settings goes home',
   /S\.page==='menu'&&dx>0\)home\(\)/.test(src.replace(/\s+/g,'')),'swipe-to-home missing');
 ok('swipe suppresses the trailing click',
   /swiped/.test(src)&&/pointerup/.test(src),'a swipe would also fire a row tap');
-ok('Escape demos back for the keyboard path',/Escape/.test(src),'missing');
 /* v3.2: swipes survive a release outside the screen frame */
 ok('pointer captured on down (off-screen release still navigates)',
   /setPointerCapture/.test(src),'a swipe leaving the frame never fires pointerup');
 /* v3.2: aggregation bar is hold-2s with JS-driven progress */
 ok('agg hold wired to pointerdown, not click',
-  /pointerdown',e=>\{[\s\S]{0,500}startAggHold\(\)/.test(src)
+  /pointerdown[\s\S]*?startAggHold\(\)/.test(src)
   &&!/if\(ab\)\{toggleAgg/.test(src),'tap on the bar would flip aggregation');
 ok('agg hold is 1s with a ticking fill',
   /\},1000\)/.test(src)&&/aggTick/.test(src)&&/aggFill/.test(src),
@@ -584,6 +578,23 @@ ok('no dead fBoot wiring left',!/id="fBoot"/.test(src),'fBoot still referenced')
 ok('click recovers the real target under pointer capture',
   /elementFromPoint/.test(src)&&/tgt\.closest\('\[data-tile\]'\)/.test(src),
   'captured clicks would all route to #scr and die');
+
+/* ── 12. v3.7: button-era focus interaction fully removed ── */
+console.log('12) v3.7 no focus leftovers');
+ok('.row:active press feedback added',/\.row:active\s*\{/.test(src),'rows have no press feedback');
+ok('.tile:active press feedback still present',/\.tile:active/.test(src),'tile press feedback lost');
+ok('no .row.fx focus highlight',!/\.row\.fx/.test(src),'.row.fx still present');
+ok('no .tile.fx focus highlight',!/\.tile\.fx/.test(src),'.tile.fx still present');
+ok('no .hb-btn.fx focus highlight',!/\.hb-btn\.fx/.test(src),'.hb-btn.fx still present');
+ok('no dc-btn/cl-btn focus-on styles',!/\.dc-btn\.on|\.cl-btn\.ban\.on/.test(src),'button focus style still present');
+ok('no moveFocus function',!/function moveFocus/.test(src),'moveFocus still present');
+ok('no maxFocus function',!/function maxFocus/.test(src),'maxFocus still present');
+ok('no brightEdit state',!/brightEdit/.test(src),'brightEdit still present');
+ok('no arrow-key navigation',!/ArrowUp|ArrowDown|ArrowLeft|ArrowRight/.test(src),'arrow-key handler still present');
+ok('no Enter-confirm routing',!/e\.key==='Enter'[\s\S]*confirm\(\)/.test(src),'Enter still confirms the focused row');
+ok('confirm has no focus-slot interception',!/mf-2|mf-1/.test(src),'focus slots still intercepted');
+ok('no focus slots on header buttons',!/maxFocus\(\)/.test(src),'header still computes focus slots');
+ok('brightness slider is draggable (#briSlider + pointermove)',/id="briSlider"/.test(src)&&/pointermove/.test(src)&&/setBri/.test(src),'slider drag not wired');
 
 console.log(`\nsize ${(Buffer.byteLength(src)/1024).toFixed(0)}KB`);
 console.log(fail===0?'ALL PASS':`${fail} FAILED`);
